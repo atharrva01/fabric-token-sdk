@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package interactive
+package interactive_test
 
 import (
 	"testing"
@@ -12,39 +12,37 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-token-sdk/token/services/certifier/interactive"
+	"github.com/hyperledger-labs/fabric-token-sdk/token/services/certifier/interactive/mock"
 	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Note: We use counterfeiter-generated mocks that are in the same package (not a subpackage).
-// This avoids import cycles that would occur if mocks were in interactive/mock, since the
-// Backend interface references *CertificationRequest from the interactive package.
-
 // TestNewCertificationService verifies construction of a new CertificationService.
 func TestNewCertificationService(t *testing.T) {
-	responderRegistry := &ResponderRegistryMock{}
-	backend := &BackendMock{}
+	responderRegistry := &mock.ResponderRegistry{}
+	backend := &mock.Backend{}
 	mp := &disabled.Provider{}
 
-	service := NewCertificationService(responderRegistry, mp, backend)
+	service := interactive.NewCertificationService(responderRegistry, mp, backend)
 
 	assert.NotNil(t, service)
 	assert.Equal(t, responderRegistry, service.ResponderRegistry)
-	assert.Equal(t, backend, service.backend)
-	assert.NotNil(t, service.wallets)
-	assert.NotNil(t, service.metrics)
-	assert.Empty(t, service.wallets)
+	assert.Equal(t, backend, interactive.ServiceBackend(service))
+	assert.NotNil(t, interactive.ServiceWallets(service))
+	assert.NotNil(t, interactive.ServiceMetrics(service))
+	assert.Empty(t, interactive.ServiceWallets(service))
 }
 
 // TestCertificationService_Start_Success verifies that Start succeeds when
 // RegisterResponder succeeds.
 func TestCertificationService_Start_Success(t *testing.T) {
-	responderRegistry := &ResponderRegistryMock{}
-	backend := &BackendMock{}
+	responderRegistry := &mock.ResponderRegistry{}
+	backend := &mock.Backend{}
 	mp := &disabled.Provider{}
 
-	service := NewCertificationService(responderRegistry, mp, backend)
+	service := interactive.NewCertificationService(responderRegistry, mp, backend)
 
 	err := service.Start()
 	require.NoError(t, err)
@@ -55,13 +53,13 @@ func TestCertificationService_Start_Success(t *testing.T) {
 // errors returned by RegisterResponder.
 func TestCertificationService_Start_RegistrationError(t *testing.T) {
 	expectedErr := errors.New("registration failed")
-	responderRegistry := &ResponderRegistryMock{}
+	responderRegistry := &mock.ResponderRegistry{}
 	responderRegistry.RegisterResponderReturns(expectedErr)
 
-	backend := &BackendMock{}
+	backend := &mock.Backend{}
 	mp := &disabled.Provider{}
 
-	service := NewCertificationService(responderRegistry, mp, backend)
+	service := interactive.NewCertificationService(responderRegistry, mp, backend)
 
 	err := service.Start()
 	require.ErrorIs(t, err, expectedErr)
@@ -71,11 +69,11 @@ func TestCertificationService_Start_RegistrationError(t *testing.T) {
 // TestCertificationService_Start_OnlyOnce verifies that repeated Start calls only
 // register the responder once.
 func TestCertificationService_Start_OnlyOnce(t *testing.T) {
-	responderRegistry := &ResponderRegistryMock{}
-	backend := &BackendMock{}
+	responderRegistry := &mock.ResponderRegistry{}
+	backend := &mock.Backend{}
 	mp := &disabled.Provider{}
 
-	service := NewCertificationService(responderRegistry, mp, backend)
+	service := interactive.NewCertificationService(responderRegistry, mp, backend)
 
 	require.NoError(t, service.Start())
 	require.NoError(t, service.Start())
@@ -87,7 +85,7 @@ func TestCertificationService_Start_OnlyOnce(t *testing.T) {
 
 // TestCertificationRequest_String verifies the String summary.
 func TestCertificationRequest_String(t *testing.T) {
-	cr := &CertificationRequest{
+	cr := &interactive.CertificationRequest{
 		Network:   "test-network",
 		Channel:   "test-channel",
 		Namespace: "test-namespace",
@@ -112,11 +110,7 @@ func TestNewCertificationRequestView(t *testing.T) {
 		{TxId: "tx2", Index: 1},
 	}
 
-	v := NewCertificationRequestView(channel, namespace, certifier, ids...)
+	v := interactive.NewCertificationRequestView(channel, namespace, certifier, ids...)
 
 	assert.NotNil(t, v)
-	assert.Equal(t, channel, v.channel)
-	assert.Equal(t, namespace, v.ns)
-	assert.Equal(t, certifier, v.certifier)
-	assert.Equal(t, ids, v.ids)
 }

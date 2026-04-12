@@ -27,6 +27,13 @@ import (
 // Additional fakes used only in this file
 // ---------------------------------------------------------------------------
 
+// ResponderRegistryMock is a minimal stub of ResponderRegistry for use in
+// package-internal tests that cannot import ./mock due to the circular-import
+// constraint (mock imports interactive).
+type ResponderRegistryMock struct{}
+
+func (r *ResponderRegistryMock) RegisterResponder(_ view.View, _ interface{}) error { return nil }
+
 // alwaysFailViewManager returns the same error on every InitiateView call.
 type alwaysFailViewManager struct {
 	mu   sync.Mutex
