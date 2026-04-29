@@ -176,6 +176,7 @@ func (p *SDK) Install() error {
 				cfg.GetFetcherCacheSize(),
 				cfg.GetFetcherCacheRefresh(),
 				cfg.GetFetcherCacheMaxQueries(),
+				cfg.IsTokenNotifierDisabled(),
 			)
 		}),
 

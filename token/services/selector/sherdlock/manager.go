@@ -8,6 +8,7 @@ package sherdlock
 
 import (
 	"context"
+	"io"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ const (
 var ErrTimeout = errors.New("timeout occurred")
 
 type Manager struct {
+	fetcher                TokenFetcher
 	selectorCache          lazy2.Provider[transaction.ID, TokenSelectorUnlocker]
 	locker                 Locker
 	leaseExpiry            time.Duration
@@ -48,6 +50,7 @@ func NewManager(
 ) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	mgr := &Manager{
+		fetcher:                fetcher,
 		locker:                 locker,
 		leaseExpiry:            leaseExpiry,
 		leaseCleanupTickPeriod: leaseCleanupTickPeriod,
@@ -104,6 +107,9 @@ func (m *Manager) cleaner(ctx context.Context) {
 }
 
 // Stop cancels the cleaner goroutine and waits for it to exit.
+// If the fetcher implements io.Closer (e.g. mixedFetcher with an active notifier
+// subscription), Close is called to release the LISTEN connection and callbacks,
+// preventing leaks across TMS restarts.
 func (m *Manager) Stop() error {
 	var err error
 	m.stopOnce.Do(func() {
@@ -114,6 +120,11 @@ func (m *Manager) Stop() error {
 		case <-time.After(stopTimeout):
 			err = ErrTimeout
 			logger.Warnf("cleaner goroutine did not stop within timeout")
+		}
+		if closer, ok := m.fetcher.(io.Closer); ok {
+			if err := closer.Close(); err != nil {
+				logger.Warnf("failed to close fetcher: %v", err)
+			}
 		}
 	})
 
