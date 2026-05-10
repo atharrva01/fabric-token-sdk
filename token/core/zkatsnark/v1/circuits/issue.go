@@ -19,8 +19,12 @@ import (
 //
 // The circuit enforces three properties:
 //  1. Issuer key ownership: IssuerPrivKey * G == (IssuerPubKeyX, IssuerPubKeyY)
-//  2. Commitment validity: Value * G + BlindingFactor * H == (CommitmentX, CommitmentY)
+//  2. Commitment validity: TypeHash * K + Value * G + BlindingFactor * H == (CommitmentX, CommitmentY)
 //  3. Range bound: 0 <= Value <= MaxValue
+//
+// The 3-generator commitment (type, value, blinding_factor) matches the existing
+// zkatdlog driver's PedersenGenerators scheme, ensuring the on-chain token format
+// is consistent across driver versions.
 type IssueCircuit struct {
 	// ── Public inputs (committed to in the proof, visible on-chain) ──────────
 
@@ -34,10 +38,15 @@ type IssueCircuit struct {
 	CommitmentX frontend.Variable `gnark:",public"`
 	CommitmentY frontend.Variable `gnark:",public"`
 
-	// HX and HY are the coordinates of the second Pedersen generator H,
+	// HX and HY are the coordinates of the second Pedersen generator H (for value),
 	// derived from the driver's public parameters.
 	HX frontend.Variable `gnark:",public"`
 	HY frontend.Variable `gnark:",public"`
+
+	// KX and KY are the coordinates of the third Pedersen generator K (for token type),
+	// derived from the driver's public parameters.
+	KX frontend.Variable `gnark:",public"`
+	KY frontend.Variable `gnark:",public"`
 
 	// MaxValue is the maximum allowed token value, set from the public parameters.
 	MaxValue frontend.Variable `gnark:",public"`
@@ -46,6 +55,10 @@ type IssueCircuit struct {
 
 	// IssuerPrivKey is the issuer's secret scalar on Baby Jubjub.
 	IssuerPrivKey frontend.Variable
+
+	// TypeHash is the token type hashed to a BN254 scalar field element.
+	// The prover computes this as Fr.SetBytes(sha256(tokenTypeString)) outside the circuit.
+	TypeHash frontend.Variable
 
 	// Value is the plaintext token value being issued.
 	Value frontend.Variable
@@ -70,14 +83,17 @@ func (c *IssueCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(derivedPK.X, c.IssuerPubKeyX)
 	api.AssertIsEqual(derivedPK.Y, c.IssuerPubKeyY)
 
-	// 2. Commitment validity: the token commitment must open to (Value, BlindingFactor).
+	// 2. Commitment validity: TypeHash*K + Value*G + BlindingFactor*H must equal the commitment.
 	com := PedersenCommitment{
 		CX:             c.CommitmentX,
 		CY:             c.CommitmentY,
+		TypeHash:       c.TypeHash,
 		Value:          c.Value,
 		BlindingFactor: c.BlindingFactor,
 		HX:             c.HX,
 		HY:             c.HY,
+		KX:             c.KX,
+		KY:             c.KY,
 	}
 	if err := com.verify(api); err != nil {
 		return err

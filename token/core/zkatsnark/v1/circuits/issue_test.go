@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package circuits_test
 
 import (
+	"crypto/sha256"
 	"math/big"
 	"testing"
 
@@ -21,16 +22,34 @@ import (
 	"github.com/hyperledger-labs/fabric-token-sdk/token/core/zkatsnark/v1/circuits"
 )
 
-// setupCurve returns the Baby Jubjub base point G and a second generator H = 2*G.
-func setupCurve() (G, H babyjubjub.PointAffine) {
+// setupGenerators returns the Baby Jubjub base point G and two independent
+// generators H = 2*G (for value) and K = 3*G (for type).
+//
+// NOTE: H = 2*G and K = 3*G are provisional choices for the PoC. The final driver
+// will derive H and K via hash-to-curve to ensure they are "nothing-up-my-sleeve"
+// generators with no known discrete-log relationship to G.
+func setupGenerators() (G, H, K babyjubjub.PointAffine) {
 	edParams := babyjubjub.GetEdwardsCurve()
 	G = edParams.Base
 	H.Double(&G)
+	K.Add(&H, &G) // K = 3*G
 	return
 }
 
-// computeCommitment computes Value*G + BlindingFactor*H on Baby Jubjub.
-func computeCommitment(G, H *babyjubjub.PointAffine, value, bf uint64) babyjubjub.PointAffine {
+// typeHashScalar hashes a token type string to a BN254 scalar field element.
+// This mirrors the Fr.SetBytes(sha256(tokenType)) derivation that the driver will
+// perform outside the circuit before building the prover witness.
+func typeHashScalar(tokenType string) (big.Int, fr.Element) {
+	digest := sha256.Sum256([]byte(tokenType))
+	var elem fr.Element
+	elem.SetBytes(digest[:])
+	var b big.Int
+	elem.BigInt(&b)
+	return b, elem
+}
+
+// computeCommitment computes TypeHash*K + Value*G + BlindingFactor*H on Baby Jubjub.
+func computeCommitment(G, H, K *babyjubjub.PointAffine, typeHashBig *big.Int, value, bf uint64) babyjubjub.PointAffine {
 	var v, b fr.Element
 	v.SetUint64(value)
 	b.SetUint64(bf)
@@ -39,10 +58,13 @@ func computeCommitment(G, H *babyjubjub.PointAffine, value, bf uint64) babyjubju
 	v.BigInt(&vBig)
 	b.BigInt(&bBig)
 
-	var vG, bH, com babyjubjub.PointAffine
+	var typeK, vG, bH, com babyjubjub.PointAffine
+	typeK.ScalarMultiplication(K, typeHashBig)
 	vG.ScalarMultiplication(G, &vBig)
 	bH.ScalarMultiplication(H, &bBig)
-	com.Add(&vG, &bH)
+
+	com.Add(&typeK, &vG)
+	com.Add(&com, &bH)
 	return com
 }
 
@@ -62,24 +84,28 @@ func issuerKeyPair(secret uint64) (privBig big.Int, pub babyjubjub.PointAffine) 
 // It compiles the circuit, runs a trusted setup, generates a Groth16 proof
 // for a valid issuance, and verifies it.
 func TestIssueCircuit_ProveAndVerify(t *testing.T) {
-	G, H := setupCurve()
+	G, H, K := setupGenerators()
+	typeHashBig, _ := typeHashScalar("USD")
 
 	privBig, pubKey := issuerKeyPair(12345)
 
 	value := uint64(100)
 	bf := uint64(42)
-	commitment := computeCommitment(&G, &H, value, bf)
+	commitment := computeCommitment(&G, &H, &K, &typeHashBig, value, bf)
 
 	assignment := &circuits.IssueCircuit{
-		IssuerPubKeyX: pubKey.X.BigInt(new(big.Int)),
-		IssuerPubKeyY: pubKey.Y.BigInt(new(big.Int)),
-		CommitmentX:   commitment.X.BigInt(new(big.Int)),
-		CommitmentY:   commitment.Y.BigInt(new(big.Int)),
-		HX:            H.X.BigInt(new(big.Int)),
-		HY:            H.Y.BigInt(new(big.Int)),
-		MaxValue:      new(big.Int).SetUint64(1_000_000),
-		IssuerPrivKey: privBig,
-		Value:         new(big.Int).SetUint64(value),
+		IssuerPubKeyX:  pubKey.X.BigInt(new(big.Int)),
+		IssuerPubKeyY:  pubKey.Y.BigInt(new(big.Int)),
+		CommitmentX:    commitment.X.BigInt(new(big.Int)),
+		CommitmentY:    commitment.Y.BigInt(new(big.Int)),
+		HX:             H.X.BigInt(new(big.Int)),
+		HY:             H.Y.BigInt(new(big.Int)),
+		KX:             K.X.BigInt(new(big.Int)),
+		KY:             K.Y.BigInt(new(big.Int)),
+		MaxValue:       new(big.Int).SetUint64(1_000_000),
+		IssuerPrivKey:  privBig,
+		TypeHash:       &typeHashBig,
+		Value:          new(big.Int).SetUint64(value),
 		BlindingFactor: new(big.Int).SetUint64(bf),
 	}
 
@@ -106,19 +132,20 @@ func TestIssueCircuit_ProveAndVerify(t *testing.T) {
 	err = groth16.Verify(proof, vk, pubWitness)
 	require.NoError(t, err)
 
-	t.Log("proof verified: issuance of 100 tokens accepted")
+	t.Log("proof verified: issuance of 100 USD tokens accepted")
 }
 
 // TestIssueCircuit_ValueExceedsMax checks that a value above MaxValue is rejected.
 func TestIssueCircuit_ValueExceedsMax(t *testing.T) {
-	G, H := setupCurve()
+	G, H, K := setupGenerators()
+	typeHashBig, _ := typeHashScalar("USD")
 
 	privBig, pubKey := issuerKeyPair(999)
 
 	// Issue a value higher than MaxValue.
 	value := uint64(2_000_000)
 	bf := uint64(7)
-	commitment := computeCommitment(&G, &H, value, bf)
+	commitment := computeCommitment(&G, &H, &K, &typeHashBig, value, bf)
 
 	assignment := &circuits.IssueCircuit{
 		IssuerPubKeyX:  pubKey.X.BigInt(new(big.Int)),
@@ -127,8 +154,11 @@ func TestIssueCircuit_ValueExceedsMax(t *testing.T) {
 		CommitmentY:    commitment.Y.BigInt(new(big.Int)),
 		HX:             H.X.BigInt(new(big.Int)),
 		HY:             H.Y.BigInt(new(big.Int)),
+		KX:             K.X.BigInt(new(big.Int)),
+		KY:             K.Y.BigInt(new(big.Int)),
 		MaxValue:       new(big.Int).SetUint64(1_000_000),
 		IssuerPrivKey:  privBig,
+		TypeHash:       &typeHashBig,
 		Value:          new(big.Int).SetUint64(value),
 		BlindingFactor: new(big.Int).SetUint64(bf),
 	}
@@ -150,14 +180,15 @@ func TestIssueCircuit_ValueExceedsMax(t *testing.T) {
 
 // TestIssueCircuit_WrongPrivKey checks that an incorrect issuer key is rejected.
 func TestIssueCircuit_WrongPrivKey(t *testing.T) {
-	G, H := setupCurve()
+	G, H, K := setupGenerators()
+	typeHashBig, _ := typeHashScalar("USD")
 
 	_, pubKey := issuerKeyPair(12345)
 	wrongPriv, _ := issuerKeyPair(99999) // different key
 
 	value := uint64(50)
 	bf := uint64(11)
-	commitment := computeCommitment(&G, &H, value, bf)
+	commitment := computeCommitment(&G, &H, &K, &typeHashBig, value, bf)
 
 	assignment := &circuits.IssueCircuit{
 		IssuerPubKeyX:  pubKey.X.BigInt(new(big.Int)),   // real pubkey
@@ -166,8 +197,11 @@ func TestIssueCircuit_WrongPrivKey(t *testing.T) {
 		CommitmentY:    commitment.Y.BigInt(new(big.Int)),
 		HX:             H.X.BigInt(new(big.Int)),
 		HY:             H.Y.BigInt(new(big.Int)),
+		KX:             K.X.BigInt(new(big.Int)),
+		KY:             K.Y.BigInt(new(big.Int)),
 		MaxValue:       new(big.Int).SetUint64(1_000_000),
 		IssuerPrivKey:  wrongPriv,                        // wrong private key
+		TypeHash:       &typeHashBig,
 		Value:          new(big.Int).SetUint64(value),
 		BlindingFactor: new(big.Int).SetUint64(bf),
 	}
@@ -185,4 +219,49 @@ func TestIssueCircuit_WrongPrivKey(t *testing.T) {
 	_, err = groth16.Prove(ccs, pk, witness)
 	require.Error(t, err, "expected proof to fail for mismatched issuer key")
 	t.Log("correctly rejected: wrong issuer private key")
+}
+
+// TestIssueCircuit_WrongTypeHash checks that a mismatched token type is rejected.
+// The commitment encodes type "USD" but the witness claims type "EUR".
+func TestIssueCircuit_WrongTypeHash(t *testing.T) {
+	G, H, K := setupGenerators()
+	usdHashBig, _ := typeHashScalar("USD")
+	eurHashBig, _ := typeHashScalar("EUR")
+
+	privBig, pubKey := issuerKeyPair(12345)
+
+	value := uint64(100)
+	bf := uint64(42)
+	// Commitment encodes USD type.
+	commitment := computeCommitment(&G, &H, &K, &usdHashBig, value, bf)
+
+	assignment := &circuits.IssueCircuit{
+		IssuerPubKeyX:  pubKey.X.BigInt(new(big.Int)),
+		IssuerPubKeyY:  pubKey.Y.BigInt(new(big.Int)),
+		CommitmentX:    commitment.X.BigInt(new(big.Int)),
+		CommitmentY:    commitment.Y.BigInt(new(big.Int)),
+		HX:             H.X.BigInt(new(big.Int)),
+		HY:             H.Y.BigInt(new(big.Int)),
+		KX:             K.X.BigInt(new(big.Int)),
+		KY:             K.Y.BigInt(new(big.Int)),
+		MaxValue:       new(big.Int).SetUint64(1_000_000),
+		IssuerPrivKey:  privBig,
+		TypeHash:       &eurHashBig, // wrong: EUR hash vs USD commitment
+		Value:          new(big.Int).SetUint64(value),
+		BlindingFactor: new(big.Int).SetUint64(bf),
+	}
+
+	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuits.IssueCircuit{})
+	require.NoError(t, err)
+
+	pk, _, err := groth16.Setup(ccs)
+	require.NoError(t, err)
+
+	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
+	require.NoError(t, err)
+
+	// Proof generation must fail: wrong type hash does not open the commitment.
+	_, err = groth16.Prove(ccs, pk, witness)
+	require.Error(t, err, "expected proof to fail for mismatched token type")
+	t.Log("correctly rejected: wrong token type hash")
 }

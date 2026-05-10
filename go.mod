@@ -7,6 +7,7 @@ require (
 	github.com/IBM/idemix v0.0.2
 	github.com/IBM/idemix/bccsp/types v0.0.0-20250313153527-832db18b9478
 	github.com/IBM/mathlib v0.0.3-0.20260331162040-6bc25a7c15ac
+	github.com/consensys/gnark v0.14.0
 	github.com/consensys/gnark-crypto v0.20.1
 	github.com/dgraph-io/ristretto/v2 v2.4.0
 	github.com/gin-gonic/gin v1.12.0
@@ -81,7 +82,6 @@ require (
 	github.com/cockroachdb/errors v1.12.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
-	github.com/consensys/gnark v0.14.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
