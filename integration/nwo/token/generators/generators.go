@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package generators
 
 import (
+	"github.com/LFDT-Panurus/panurus/integration/nwo/token/topology"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/token/topology"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -38,7 +38,7 @@ type TokenPlatform interface {
 type PublicParamsGenerator interface {
 	// Generate generates the public parameters for the given TMS, wallets, and any additional relevant argument.
 	// It returns the public parameters and any error.
-	Generate(tms *topology.TMS, wallets *topology.Wallets, args ...interface{}) ([]byte, error)
+	Generate(tms *topology.TMS, wallets *topology.Wallets, args ...any) ([]byte, error)
 }
 
 // CryptoMaterialGenerator models the crypto material generator

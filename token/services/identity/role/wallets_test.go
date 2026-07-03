@@ -8,14 +8,15 @@ package role_test
 
 import (
 	"errors"
+	"math/big"
 	"testing"
 
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/identity/role"
+	"github.com/LFDT-Panurus/panurus/token/services/identity/role/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/identity/role"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/identity/role/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -217,23 +218,23 @@ func TestLongTermOwnerWallet(t *testing.T) {
 		}
 
 		tv.UnspentTokensIteratorByReturns(it, nil)
-		tv.BalanceReturns(30, nil)
+		tv.BalanceReturns(big.NewInt(30), nil)
 
 		// ListTokens
-		tokens, err := w.ListTokens(&driver.ListTokensOptions{Context: t.Context(), TokenType: "T1"})
+		tokens, err := w.ListTokens(t.Context(), &driver.ListTokensOptions{TokenType: "T1"})
 		require.NoError(t, err)
 		assert.Len(t, tokens.Tokens, 2)
 
 		// ListTokensIterator
 		tv.UnspentTokensIteratorByReturns(it, nil)
-		itRet, err := w.ListTokensIterator(&driver.ListTokensOptions{Context: t.Context()})
+		itRet, err := w.ListTokensIterator(t.Context(), &driver.ListTokensOptions{})
 		require.NoError(t, err)
 		assert.Equal(t, it, itRet)
 
 		// Balance
-		bal, err := w.Balance(t.Context(), &driver.ListTokensOptions{Context: t.Context()})
+		bal, err := w.Balance(t.Context(), &driver.ListTokensOptions{})
 		require.NoError(t, err)
-		assert.Equal(t, uint64(30), bal)
+		assert.Equal(t, big.NewInt(30), bal)
 	})
 
 	t.Run("GetSigner", func(t *testing.T) {

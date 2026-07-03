@@ -2,7 +2,7 @@
 !theme plain
 skinparam componentStyle rectangle
 
-title Fabric Token SDK - Unified Storage Database Schema
+title Panurus - Unified Storage Database Schema
 
 package "Transaction & Audit Store (TTXDB / AuditDB)" {
     entity "Requests" as requests {
@@ -24,7 +24,7 @@ package "Transaction & Audit Store (TTXDB / AuditDB)" {
         sender_eid : TEXT
         recipient_eid : TEXT
         token_type : TEXT <<NOT NULL>>
-        amount : BIGINT <<NOT NULL>>
+        amount : NUMERIC(78,0) <<NOT NULL>>
         stored_at : TIMESTAMP <<NOT NULL>>
     }
 
@@ -34,14 +34,7 @@ package "Transaction & Audit Store (TTXDB / AuditDB)" {
         tx_id : TEXT <<FK, NOT NULL>>
         enrollment_id : TEXT
         token_type : TEXT <<NOT NULL>>
-        amount : BIGINT <<NOT NULL>>
-        stored_at : TIMESTAMP <<NOT NULL>>
-    }
-
-    entity "Validations" as req_vals {
-        * tx_id : TEXT <<PK, FK, NOT NULL>>
-        --
-        metadata : BYTEA
+        amount : NUMERIC(78,0) <<NOT NULL>>
         stored_at : TIMESTAMP <<NOT NULL>>
     }
 
@@ -56,8 +49,18 @@ package "Transaction & Audit Store (TTXDB / AuditDB)" {
 
     txs }o--|| requests : "tx_id"
     movements }o--|| requests : "tx_id"
-    req_vals ||--|| requests : "tx_id"
     tx_ends }o..|| requests : "tx_id (no FK constraint)"
+}
+
+package "Endorser Store (EndorserDB)" {
+    entity "Validations" as req_vals {
+        * tx_id : TEXT <<PK, NOT NULL>>
+        --
+        request : BYTEA
+        metadata : BYTEA
+        pp_hash : BYTEA
+        stored_at : TIMESTAMP <<NOT NULL>>
+    }
 }
 
 package "Token Store (TokenDB)" {
@@ -65,7 +68,7 @@ package "Token Store (TokenDB)" {
         * tx_id : TEXT <<PK, NOT NULL>>
         * idx : INT <<PK, NOT NULL>>
         --
-        amount : BIGINT <<NOT NULL>>
+        amount : NUMERIC(78,0) <<NOT NULL>>
         token_type : TEXT <<NOT NULL>>
         quantity : TEXT <<NOT NULL>>
         issuer_raw : BYTEA
@@ -115,9 +118,18 @@ package "Token Store (TokenDB)" {
         created_at : TIMESTAMP
     }
 
+    entity "TokenSKICleanups" as tkn_ski_cleanups {
+        * tx_id : TEXT <<PK, NOT NULL, FK>>
+        * idx : INT <<PK, NOT NULL, FK>>
+        --
+        cleaned_at : TIMESTAMP <<NOT NULL>>
+        cleaned_by : TEXT <<NOT NULL>>
+    }
+
     tkn_own }o--|| tokens : "(tx_id, idx)"
     tkn_crts }o--|| tokens : "(tx_id, idx)"
     tkn_locks |o--o| tokens : "(tx_id, idx)"
+    tkn_ski_cleanups }o--|| tokens : "(tx_id, idx)"
 }
 
 package "Wallet & Identity Store (WalletDB / IdentityDB)" {

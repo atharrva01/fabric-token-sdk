@@ -9,11 +9,11 @@ package views
 import (
 	"encoding/json"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/utils"
 )
 
 type RevokeUser struct {
@@ -24,7 +24,7 @@ type RevokeUserView struct {
 	*RevokeUser
 }
 
-func (u *RevokeUserView) Call(context view.Context) (interface{}, error) {
+func (u *RevokeUserView) Call(context view.Context) (any, error) {
 	rh := utils.Hashable(u.RH).String()
 	logger.Infof("revoke [%s][%s]", u.RH, rh)
 	kvsInstance := GetKVS(context)
@@ -58,7 +58,7 @@ type GetRevocationHandleView struct {
 	*GetRevocationHandle
 }
 
-func (r *GetRevocationHandle) Call(context view.Context) (interface{}, error) {
+func (r *GetRevocationHandle) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(r.TMSID))
 	assert.NoError(err, "failed getting management service")
 	assert.NotNil(tms, "tms not found [%s]", r.TMSID)

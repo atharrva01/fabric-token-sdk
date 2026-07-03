@@ -12,14 +12,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	idriver "github.com/hyperledger-labs/fabric-token-sdk/token/services/identity/driver"
-	idrivermock "github.com/hyperledger-labs/fabric-token-sdk/token/services/identity/driver/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/identity/x509/crypto"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/kvs"
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	idriver "github.com/LFDT-Panurus/panurus/token/services/identity/driver"
+	idrivermock "github.com/LFDT-Panurus/panurus/token/services/identity/driver/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/identity/x509/crypto"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/kvs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v3"
 )
 
 func TestAuditInfo(t *testing.T) {
@@ -386,8 +386,8 @@ func TestKeyManagerProvider_Get(t *testing.T) {
 			return path
 		})
 
-		opts := map[string]interface{}{
-			"BCCSP": map[string]interface{}{
+		opts := map[string]any{
+			"BCCSP": map[string]any{
 				"Default": "SW",
 			},
 		}

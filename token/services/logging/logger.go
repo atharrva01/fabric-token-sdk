@@ -18,14 +18,21 @@ import (
 const loggerNameSeparator = "."
 
 // Logger provides logging API
-type Logger = logging.Logger
+type (
+	Logger = logging.Logger
+	Config = logging.Config
+)
+
+func Init(config logging.Config) {
+	logging.Init(config)
+}
 
 func MustGetLogger(params ...string) Logger {
 	return utils.MustGet(GetLogger(params...))
 }
 
 func GetLogger(params ...string) (Logger, error) {
-	return logging.GetLoggerWithReplacements(map[string]string{"github.com.hyperledger-labs.fabric-token-sdk.token": "fts"}, params)
+	return logging.GetLoggerWithReplacements(map[string]string{"github.com.LFDT-Panurus.panurus.token": "panurus"}, params)
 }
 
 func DriverLogger(prefix string, networkID string, channel string, namespace string) Logger {
@@ -48,7 +55,7 @@ func loggerName(parts ...string) string {
 
 // Debug is a workaround to reduce memory allocation when debug is disabled.
 // Indeed, the fabric logger performs an operation that allocate memory before checking the log level.
-func Debug(logger Logger, params ...interface{}) {
+func Debug(logger Logger, params ...any) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debug(params...)
 	}

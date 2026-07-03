@@ -15,24 +15,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/integration/nwo/runner/nwo"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/token"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/model"
+	token3 "github.com/LFDT-Panurus/panurus/integration/token"
+	common2 "github.com/LFDT-Panurus/panurus/integration/token/common"
+	dlog "github.com/LFDT-Panurus/panurus/integration/token/fungible/dlogstress/support"
+	"github.com/LFDT-Panurus/panurus/integration/token/fungible/views"
+	token4 "github.com/LFDT-Panurus/panurus/token"
+	dlognoghv1 "github.com/LFDT-Panurus/panurus/token/core/zkatdlog/nogh/v1/setup"
+	"github.com/LFDT-Panurus/panurus/token/core/zkatdlog/nogh/v1/validator"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/ttxdb"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/runner/nwo"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/model"
-	token3 "github.com/hyperledger-labs/fabric-token-sdk/integration/token"
-	common2 "github.com/hyperledger-labs/fabric-token-sdk/integration/token/common"
-	dlog "github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/dlogstress/support"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/views"
-	token4 "github.com/hyperledger-labs/fabric-token-sdk/token"
-	dlognoghv1 "github.com/hyperledger-labs/fabric-token-sdk/token/core/zkatdlog/nogh/v1/setup"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/zkatdlog/nogh/v1/validator"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/ttxdb"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"github.com/onsi/gomega"
 )
 
@@ -43,6 +43,10 @@ const (
 	// FabTokenNamespace is the default name for the namespace where the token chaincode is deployed when using the fabtoken driver
 	// #nosec G101  no passwords here
 	FabTokenNamespace = "fabtoken_token_chaincode"
+
+	// transferTimeout is the maximum time to wait for a transfer operation to complete in tests.
+	// This generous timeout accounts for variable CI environment performance.
+	transferTimeout = 60 * time.Second
 )
 
 var AuditedTransactions = []TransactionRecord{
@@ -709,7 +713,13 @@ func TestAll(network *integration.Infrastructure, auditorId string, onRestart On
 		}()
 	}
 	for _, transfer := range transferErrors {
-		err := <-transfer
+		var err error
+		select {
+		case err = <-transfer:
+			// Received transfer result
+		case <-time.After(transferTimeout):
+			gomega.Expect(false).To(gomega.BeTrue(), "timeout waiting for transfer to complete")
+		}
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 	CheckBalanceAndHolding(network, bob, "", "EUR", 2820-sum, auditor)
@@ -754,7 +764,14 @@ func TestAll(network *integration.Infrastructure, auditorId string, onRestart On
 	// collect the errors, and check that they are all nil, and one of them is the error we expect.
 	var errs []error
 	for _, transfer := range transferErrors2 {
-		errs = append(errs, <-transfer)
+		var err error
+		select {
+		case err = <-transfer:
+			// Received transfer result
+		case <-time.After(transferTimeout):
+			gomega.Expect(false).To(gomega.BeTrue(), "timeout waiting for transfer to complete")
+		}
+		errs = append(errs, err)
 	}
 	gomega.Expect((errs[0] == nil && errs[1] != nil) || (errs[0] != nil && errs[1] == nil)).To(gomega.BeTrue())
 	var errStr string
@@ -807,14 +824,25 @@ func TestAll(network *integration.Infrastructure, auditorId string, onRestart On
 	// use the same token for both actions, this must fail
 	txIssuedPineapples1 := IssueCash(network, "", "Pineapples", 3, alice, auditor, true, issuer)
 	IssueCash(network, "", "Pineapples", 3, alice, auditor, true, issuer)
-	failedTransferTxID := TransferCashMultiActions(network, alice, "", "Pineapples", []uint64{2, 3}, []*token3.NodeReference{bob, charlie}, auditor, &token2.ID{TxId: txIssuedPineapples1}, "failed to append spent id", txIssuedPineapples1)
+	failedTransferTxID := TransferCashMultiActions(
+		network,
+		alice,
+		"",
+		"Pineapples",
+		[]uint64{2, 3},
+		[]*token3.NodeReference{bob, charlie},
+		auditor,
+		&token2.ID{TxId: txIssuedPineapples1},
+		fmt.Sprintf("duplicate token ID [[%s:0]] found in metadata at action index [1] for tx", txIssuedPineapples1),
+		txIssuedPineapples1,
+	)
 	// the above transfer must fail at execution phase, therefore the auditor should be explicitly informed about this transaction
 	CheckBalance(network, alice, "", "Pineapples", 6)
-	CheckHolding(network, alice, "", "Pineapples", 1, auditor)
+	CheckHolding(network, alice, "", "Pineapples", 6, auditor)
 	CheckBalance(network, bob, "", "Pineapples", 0)
-	CheckHolding(network, bob, "", "Pineapples", 2, auditor)
+	CheckHolding(network, bob, "", "Pineapples", 0, auditor)
 	CheckBalance(network, charlie, "", "Pineapples", 0)
-	CheckHolding(network, charlie, "", "Pineapples", 3, auditor)
+	CheckHolding(network, charlie, "", "Pineapples", 0, auditor)
 	fmt.Printf("failed transaction [%s]\n", failedTransferTxID)
 	SetTransactionAuditStatus(network, auditor, failedTransferTxID, ttx.Deleted)
 	CheckBalanceAndHolding(network, alice, "", "Pineapples", 6, auditor)
@@ -1130,8 +1158,8 @@ func TestStressSuite(network *integration.Infrastructure, auditorId string, sele
 		UseExistingFunds: false,
 	}}))
 
-	CheckLocalMetrics(network, "alice", "github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/views/BalanceView")
-	CheckPrometheusMetrics(network, "github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/views/BalanceView")
+	CheckLocalMetrics(network, "alice", "github.com/LFDT-Panurus/panurus/integration/token/fungible/views/BalanceView")
+	CheckPrometheusMetrics(network, "github.com/LFDT-Panurus/panurus/integration/token/fungible/views/BalanceView")
 }
 
 func TestStress(network *integration.Infrastructure, auditorId string, selector *token3.ReplicaSelector) {

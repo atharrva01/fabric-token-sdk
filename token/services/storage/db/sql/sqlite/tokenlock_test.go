@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
+	q "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
-	common3 "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/sql/common"
+
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	common3 "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/common"
 	. "github.com/onsi/gomega"
 )
 
@@ -26,6 +26,7 @@ func mockTokenLockStore(db *sql.DB) *common3.TokenLockStore {
 
 	store, _ := NewTokenLockStore(&dbs, common3.TableNames{
 		TokenLocks: "TOKEN_LOCKS",
+		Tokens:     "TOKENS",
 		Requests:   "REQUESTS",
 	})
 
@@ -37,7 +38,7 @@ func TestIsStale(t *testing.T) {
 
 	query, args := q.DeleteFrom("TokenLocks").
 		Where(IsStale("TokenLocks", "Requests", 5*time.Second)).
-		Format(sqlite.NewConditionInterpreter())
+		Format(NewConditionInterpreter())
 
 	Expect(query).To(Equal("DELETE FROM TokenLocks WHERE tx_id IN (" +
 		"SELECT tl.tx_id " +

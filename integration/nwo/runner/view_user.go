@@ -12,19 +12,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/model"
-	api3 "github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/model/api"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/service/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/service/metrics"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/service/user"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/model"
+	api3 "github.com/LFDT-Panurus/panurus/integration/nwo/txgen/model/api"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/service/logging"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/service/metrics"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/service/user"
 
+	"github.com/LFDT-Panurus/panurus/integration/token/fungible/views"
+	metrics2 "github.com/LFDT-Panurus/panurus/token/core/common/metrics"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/views"
-	metrics2 "github.com/hyperledger-labs/fabric-token-sdk/token/core/common/metrics"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -85,7 +85,7 @@ type viewUser struct {
 	tracer     trace.Tracer
 }
 
-func (u *viewUser) CallView(fid string, in []byte) (interface{}, error) {
+func (u *viewUser) CallView(fid string, in []byte) (any, error) {
 	return u.client.CallView(fid, in)
 }
 
@@ -151,7 +151,7 @@ func (u *viewUser) GetBalance() (api3.Amount, api3.Error) {
 	return q.ToBigInt().Uint64(), nil
 }
 
-func (u *viewUser) callView(fid string, input interface{}) (interface{}, error) {
+func (u *viewUser) callView(fid string, input any) (any, error) {
 	marshaled, err := json.Marshal(input)
 	if err != nil {
 		return nil, err

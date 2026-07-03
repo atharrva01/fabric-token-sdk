@@ -9,13 +9,13 @@ package views
 import (
 	"encoding/json"
 
+	token2 "github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 // Redeem contains the input information for a redeem
@@ -42,7 +42,7 @@ type RedeemView struct {
 	*Redeem
 }
 
-func (t *RedeemView) Call(context view.Context) (interface{}, error) {
+func (t *RedeemView) Call(context view.Context) (any, error) {
 	// The sender directly prepare the token transaction.
 	// The sender creates an anonymous transaction (this means that the resulting Fabric transaction will be signed using idemix, for example),
 	// and specify the auditor that must be contacted to approve the operation.
@@ -126,7 +126,7 @@ func (p *RedeemViewFactory) NewView(in []byte) (view.View, error) {
 
 type IssuerRedeemAcceptView struct{}
 
-func (a *IssuerRedeemAcceptView) Call(context view.Context) (interface{}, error) {
+func (a *IssuerRedeemAcceptView) Call(context view.Context) (any, error) {
 	// Verify Token Request against Metadata
 	tx, err := ttx.ReceiveTransaction(context)
 	if err != nil {

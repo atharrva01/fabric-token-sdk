@@ -9,11 +9,11 @@ package certifier
 import (
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/certifier"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/certifier"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
 )
 
 var logger = logging.MustGetLogger()
@@ -29,7 +29,7 @@ func NewRegisterView(network string, channel string, namespace string, wallet st
 	return &RegisterView{Network: network, Channel: channel, Namespace: namespace, Wallet: wallet}
 }
 
-func (r *RegisterView) Call(context view.Context) (interface{}, error) {
+func (r *RegisterView) Call(context view.Context) (any, error) {
 	// If the tms does not support graph hiding, skip
 	tms, err := token.GetManagementService(
 		context,

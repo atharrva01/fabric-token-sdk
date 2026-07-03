@@ -12,8 +12,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
 )
 
 type viewContext = view.Context
@@ -27,7 +27,7 @@ func (c *contextWrapper) Context() context.Context {
 	return c.ctx
 }
 
-func RunViewWithTimeout(ctx view.Context, v view.View, timeout time.Duration, opts ...view.RunViewOption) (interface{}, error) {
+func RunViewWithTimeout(ctx view.Context, v view.View, timeout time.Duration, opts ...view.RunViewOption) (any, error) {
 	if timeout == 0 {
 		return ctx.RunView(v, opts...)
 	}

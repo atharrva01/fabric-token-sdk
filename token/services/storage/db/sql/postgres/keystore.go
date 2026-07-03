@@ -11,8 +11,9 @@ import (
 
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	common3 "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/sql/common"
+	fscPostgres "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+
+	common3 "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/common"
 )
 
 // KeystoreStore wraps common.KeystoreStore to add advisory lock to schema creation
@@ -36,7 +37,7 @@ func (s *KeystoreStore) CreateSchema() error {
 
 // NewKeystoreStore returns a new KeystoreStore for the given RWDB and table names.
 func NewKeystoreStore(dbs *common2.RWDB, tableNames common3.TableNames) (*KeystoreStore, error) {
-	baseStore, err := common3.NewKeystoreStore(dbs.ReadDB, dbs.WriteDB, tableNames, postgres.NewConditionInterpreter(), &postgres.ErrorMapper{})
+	baseStore, err := common3.NewKeystoreStore(dbs.ReadDB, dbs.WriteDB, tableNames, NewConditionInterpreter(), &fscPostgres.ErrorMapper{})
 	if err != nil {
 		return nil, err
 	}

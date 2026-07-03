@@ -9,12 +9,12 @@ package views
 import (
 	"encoding/json"
 
+	"github.com/LFDT-Panurus/panurus/integration/token/dvp/views/house"
+	"github.com/LFDT-Panurus/panurus/token/services/nfttx"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/token/dvp/views/house"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/nfttx"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
 )
 
 // Sell contains the sell instructions
@@ -31,7 +31,7 @@ type SellHouseView struct {
 	*Sell
 }
 
-func (d *SellHouseView) Call(context view.Context) (interface{}, error) {
+func (d *SellHouseView) Call(context view.Context) (any, error) {
 	// Prepare a new token transaction.
 	// It will contain two legs:
 	// 1. The first leg will be used to transfer the house to the buyer.

@@ -9,9 +9,9 @@ package core
 import (
 	"encoding/json"
 
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/driver/protos-go/v1/pp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver/protos-go/pp"
 )
 
 // Config defines the configuration interface for a Token Management Service (TMS).
@@ -23,7 +23,7 @@ type Config interface {
 	// TranslatePath translates the passed path relative to the config path.
 	TranslatePath(path string) string
 	// UnmarshalKey unmarshals the configuration value associated with the key into rawVal.
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalKey(key string, rawVal any) error
 }
 
 // NamedFactory associates a token driver identifier with its corresponding driver factory.

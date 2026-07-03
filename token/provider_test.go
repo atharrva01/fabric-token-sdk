@@ -10,9 +10,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,11 +22,11 @@ import (
 
 // mockServiceProvider mocks ServiceProvider interface
 type mockServiceProvider struct {
-	service interface{}
+	service any
 	err     error
 }
 
-func (m *mockServiceProvider) GetService(v interface{}) (interface{}, error) {
+func (m *mockServiceProvider) GetService(v any) (any, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

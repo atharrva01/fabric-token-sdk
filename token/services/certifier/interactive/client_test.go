@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
+	token2 "github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/certifier/interactive"
+	"github.com/LFDT-Panurus/panurus/token/services/tokens"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/certifier/interactive"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/tokens"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,7 +77,7 @@ type fakeViewManager struct {
 	failErr error // if set, next InitiateView returns this error
 }
 
-func (f *fakeViewManager) InitiateView(v view.View) (interface{}, error) {
+func (f *fakeViewManager) InitiateView(v view.View) (any, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -404,7 +404,7 @@ type countingViewManager struct {
 	counter *atomic.Int32
 }
 
-func (c *countingViewManager) InitiateView(v view.View) (interface{}, error) {
+func (c *countingViewManager) InitiateView(v view.View) (any, error) {
 	result, err := c.inner.InitiateView(v)
 	if err == nil {
 		c.counter.Add(1)
@@ -423,7 +423,7 @@ func (e *fakeTokenEvent) Topic() string {
 	return tokens.AddToken
 }
 
-func (e *fakeTokenEvent) Message() interface{} {
+func (e *fakeTokenEvent) Message() any {
 	return tokens.TokenMessage{
 		TxID:  e.txID,
 		Index: e.index,

@@ -9,11 +9,11 @@ package cash
 import (
 	"encoding/json"
 
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 // IssueCash contains the input information to issue a token
@@ -32,7 +32,7 @@ type IssueCashView struct {
 	*IssueCash
 }
 
-func (p *IssueCashView) Call(context view.Context) (interface{}, error) {
+func (p *IssueCashView) Call(context view.Context) (any, error) {
 	// As a first step operation, the issuer contacts the recipient's FSC node
 	// to ask for the identity to use to assign ownership of the freshly created token.
 	// Notice that, this step would not be required if the issuer knew already which

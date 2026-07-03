@@ -9,17 +9,17 @@ package tokens
 import (
 	"reflect"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services"
+	"github.com/LFDT-Panurus/panurus/token/services/network"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/tokendb"
+	"github.com/LFDT-Panurus/panurus/token/services/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/tokendb"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/utils/cache"
 )
 
-var managerType = reflect.TypeOf((*ServiceManager)(nil))
+var managerType = reflect.TypeFor[*ServiceManager]()
 
 // StoreServiceManager defines the interface for obtaining a token database store service by TMS ID.
 type StoreServiceManager = tokendb.StoreServiceManager

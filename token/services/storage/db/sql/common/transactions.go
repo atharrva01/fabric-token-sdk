@@ -15,21 +15,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	driver2 "github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/storage"
+	dbdriver "github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	q "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query"
+	common3 "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query/common"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query/cond"
+	_select "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query/select"
 	"github.com/hashicorp/go-uuid"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
-	_select "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/select"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	driver2 "github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage"
-	dbdriver "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
 )
 
 // maxAmountBits is the maximum bit length supported by NUMERIC(78, 0).
@@ -41,7 +41,6 @@ type transactionTables struct {
 	Movements             string
 	Transactions          string
 	Requests              string
-	Validations           string
 	TransactionEndorseAck string
 }
 
@@ -49,6 +48,8 @@ type TransactionStore struct {
 	readDB                *sql.DB
 	writeDB               *sql.DB
 	table                 transactionTables
+	tablePrefix           string
+	tableParams           []string
 	ci                    common3.CondInterpreter
 	pi                    common3.PagInterpreter
 	notifier              dbdriver.TransactionNotifier
@@ -57,6 +58,8 @@ type TransactionStore struct {
 
 func newTransactionStore(
 	readDB, writeDB *sql.DB,
+	tablePrefix string,
+	tableParams []string,
 	tables transactionTables,
 	ci common3.CondInterpreter,
 	pi common3.PagInterpreter,
@@ -67,6 +70,8 @@ func newTransactionStore(
 		readDB:                readDB,
 		writeDB:               writeDB,
 		table:                 tables,
+		tablePrefix:           tablePrefix,
+		tableParams:           tableParams,
 		ci:                    ci,
 		pi:                    pi,
 		notifier:              notifier,
@@ -74,16 +79,25 @@ func newTransactionStore(
 	}
 }
 
+// PrefixedTableName returns the formatted table name for the given logical name.
+func (s *TransactionStore) PrefixedTableName(name string) string {
+	nc, err := ncProvider.GetFormatter(s.tablePrefix)
+	if err != nil {
+		return name
+	}
+
+	return nc.MustFormat(name, s.tableParams...)
+}
+
 func NewAuditTransactionStore(readDB, writeDB *sql.DB, tables TableNames, ci common3.CondInterpreter, pi common3.PagInterpreter) (*TransactionStore, error) {
 	return NewOwnerTransactionStore(readDB, writeDB, tables, ci, pi)
 }
 
 func NewOwnerTransactionStore(readDB, writeDB *sql.DB, tables TableNames, ci common3.CondInterpreter, pi common3.PagInterpreter) (*TransactionStore, error) {
-	return newTransactionStore(readDB, writeDB, transactionTables{
+	return newTransactionStore(readDB, writeDB, tables.Prefix, tables.Params, transactionTables{
 		Movements:             tables.Movements,
 		Transactions:          tables.Transactions,
 		Requests:              tables.Requests,
-		Validations:           tables.Validations,
 		TransactionEndorseAck: tables.TransactionEndorseAck,
 	}, ci, pi, nil, nil), nil
 }
@@ -96,11 +110,10 @@ func NewTransactionStoreWithNotifierAndRecovery(
 	notifier dbdriver.TransactionNotifier,
 	recoveryLeaderFactory func(context.Context, *sql.DB, int64) (dbdriver.RecoveryLeadership, bool, error),
 ) (*TransactionStore, error) {
-	return newTransactionStore(readDB, writeDB, transactionTables{
+	return newTransactionStore(readDB, writeDB, tables.Prefix, tables.Params, transactionTables{
 		Movements:             tables.Movements,
 		Transactions:          tables.Transactions,
 		Requests:              tables.Requests,
-		Validations:           tables.Validations,
 		TransactionEndorseAck: tables.TransactionEndorseAck,
 	}, ci, pi, notifier, recoveryLeaderFactory), nil
 }
@@ -116,7 +129,7 @@ func (db *TransactionStore) GetTokenRequest(ctx context.Context, txID string) ([
 		Where(cond.Eq("tx_id", txID)).
 		Format(db.ci)
 
-	return common.QueryUnique[[]byte](db.readDB, query, args...)
+	return common.QueryUniqueContext[[]byte](ctx, db.readDB, query, args...)
 }
 
 // GetTokenRequests fetches the token requests for the given tx ids in a
@@ -256,40 +269,6 @@ func (db *TransactionStore) GetStatus(ctx context.Context, txID string) (dbdrive
 	return status, statusMessage, nil
 }
 
-func (db *TransactionStore) QueryValidations(ctx context.Context, params dbdriver.QueryValidationRecordsParams) (dbdriver.ValidationRecordsIterator, error) {
-	validationsTable, requestsTable := q.Table(db.table.Validations), q.Table(db.table.Requests)
-	query, args := q.Select().
-		Fields(
-			validationsTable.Field("tx_id"), requestsTable.Field("request"), common3.FieldName("metadata"),
-			requestsTable.Field("status"), validationsTable.Field("stored_at"),
-		).
-		From(validationsTable.Join(requestsTable,
-			cond.Cmp(validationsTable.Field("tx_id"), "=", requestsTable.Field("tx_id"))),
-		).
-		Where(HasValidationParams(params, db.table.Validations)).
-		Format(db.ci)
-
-	logging.Debug(logger, query, args)
-	rows, err := db.readDB.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	it := common.NewIterator(rows, func(r *dbdriver.ValidationRecord) error {
-		var meta []byte
-		if err := rows.Scan(&r.TxID, &r.TokenRequest, &meta, &r.Status, &r.Timestamp); err != nil {
-			return err
-		}
-
-		return unmarshal(meta, &r.Metadata)
-	})
-	if params.Filter == nil {
-		return it, nil
-	}
-
-	return iterators.Filter(it, params.Filter), nil
-}
-
 func (db *TransactionStore) Notifier() (dbdriver.TransactionNotifier, error) {
 	if db.notifier == nil {
 		return nil, storage.ErrNotSupported
@@ -312,6 +291,7 @@ func (db *TransactionStore) QueryTokenRequests(ctx context.Context, params dbdri
 		return nil, err
 	}
 	// TODO: AF remove r.TokenRequest. Not used
+
 	return common.NewIterator(rows, func(r *dbdriver.TokenRequestRecord) error { return rows.Scan(&r.TxID, &r.TokenRequest, &r.Status) }), nil
 }
 
@@ -327,23 +307,19 @@ func (db *TransactionStore) AcquireRecoveryLeadership(ctx context.Context, lockI
 
 // ClaimPendingTransactions returns a claimed batch of Pending transactions.
 // The default SQL implementation is permissive and does not persist recovery claims.
-func (db *TransactionStore) ClaimPendingTransactions(ctx context.Context, params dbdriver.RecoveryClaimParams) ([]*dbdriver.TransactionRecord, error) {
-	transactionsTable, requestsTable := q.Table(db.table.Transactions), q.Table(db.table.Requests)
+// tx_id and stored_at are projected directly from the requests table — the
+// transactions table is no longer joined since it carries no information
+// the recovery loop needs and adding it would re-introduce a fan-out by
+// movement/output that the caller would have to dedupe by tx_id.
+func (db *TransactionStore) ClaimPendingTransactions(ctx context.Context, params dbdriver.RecoveryClaimParams) ([]*dbdriver.RecoveryClaim, error) {
 	query, args := q.Select().
-		Fields(
-			transactionsTable.Field("tx_id"), common3.FieldName("action_type"), common3.FieldName("sender_eid"),
-			common3.FieldName("recipient_eid"), common3.FieldName("token_type"), common3.FieldName("amount"),
-			requestsTable.Field("status"), requestsTable.Field("application_metadata"),
-			requestsTable.Field("public_metadata"), transactionsTable.Field("stored_at"),
-		).
-		From(transactionsTable.Join(requestsTable,
-			cond.Cmp(transactionsTable.Field("tx_id"), "=", requestsTable.Field("tx_id"))),
-		).
+		FieldsByName("tx_id", "stored_at").
+		From(q.Table(db.table.Requests)).
 		Where(cond.And(
 			cond.Eq("status", dbdriver.Pending),
-			cond.Lt(common3.FieldName(db.table.Transactions+".stored_at"), params.OlderThan),
+			cond.Lt("stored_at", params.OlderThan),
 		)).
-		OrderBy(q.Asc(transactionsTable.Field("stored_at"))).
+		OrderBy(q.Asc(common3.FieldName("stored_at"))).
 		Limit(params.Limit).
 		Format(db.ci)
 
@@ -353,19 +329,8 @@ func (db *TransactionStore) ClaimPendingTransactions(ctx context.Context, params
 		return nil, err
 	}
 
-	results := common.NewIterator(rows, func(r *dbdriver.TransactionRecord) error {
-		var amount BigInt
-		var appMeta []byte
-		var pubMeta []byte
-		if err := rows.Scan(&r.TxID, &r.ActionType, &r.SenderEID, &r.RecipientEID, &r.TokenType, &amount, &r.Status, &appMeta, &pubMeta, &r.Timestamp); err != nil {
-			return err
-		}
-		r.Amount = amount.Int
-
-		return errors2.Join(
-			unmarshal(appMeta, &r.ApplicationMetadata),
-			unmarshal(pubMeta, &r.PublicMetadata),
-		)
+	results := common.NewIterator(rows, func(r *dbdriver.RecoveryClaim) error {
+		return rows.Scan(&r.TxID, &r.StoredAt)
 	})
 
 	return iterators.ReadAllPointers(results)
@@ -495,6 +460,7 @@ func (db *TransactionStore) GetSchema() string {
 			stored_at TIMESTAMP NOT NULL
 		);
 		CREATE INDEX IF NOT EXISTS idx_tx_id_%s ON %s ( tx_id );
+		CREATE INDEX IF NOT EXISTS idx_storedat_%s ON %s ( stored_at DESC );
 
 		-- movements
 		CREATE TABLE IF NOT EXISTS %s (
@@ -508,13 +474,6 @@ func (db *TransactionStore) GetSchema() string {
 		CREATE INDEX IF NOT EXISTS idx_tx_id_%s ON %s ( tx_id );
 		CREATE INDEX IF NOT EXISTS idx_eid_storedat_%s ON %s ( enrollment_id, stored_at );
 
-		-- validations
-		CREATE TABLE IF NOT EXISTS %s (
-			tx_id TEXT NOT NULL PRIMARY KEY REFERENCES %s,
-			metadata BYTEA NOT NULL,
-			stored_at TIMESTAMP NOT NULL
-		);
-
 		-- tea
 		CREATE TABLE IF NOT EXISTS %s (
 			id CHAR(36) NOT NULL PRIMARY KEY,
@@ -526,9 +485,8 @@ func (db *TransactionStore) GetSchema() string {
 		CREATE INDEX IF NOT EXISTS idx_tx_id_%s ON %s ( tx_id );
 		`,
 		db.table.Requests, db.table.Requests, db.table.Requests, db.table.Requests, db.table.Requests,
-		db.table.Transactions, db.table.Requests, db.table.Transactions, db.table.Transactions,
+		db.table.Transactions, db.table.Requests, db.table.Transactions, db.table.Transactions, db.table.Transactions, db.table.Transactions,
 		db.table.Movements, db.table.Requests, db.table.Movements, db.table.Movements, db.table.Movements, db.table.Movements,
-		db.table.Validations, db.table.Requests,
 		db.table.TransactionEndorseAck, db.table.TransactionEndorseAck, db.table.TransactionEndorseAck,
 	)
 }
@@ -640,6 +598,7 @@ func (w *TransactionStoreTransaction) AddMovement(ctx context.Context, rs ...dbd
 	}
 	if len(rs) == 0 {
 		// nothing to do here
+
 		return nil
 	}
 
@@ -663,28 +622,6 @@ func (w *TransactionStoreTransaction) AddMovement(ctx context.Context, rs ...dbd
 		Format()
 	logging.Debug(logger, query, args)
 	_, err := w.txn.ExecContext(ctx, query, args...)
-
-	return ttxDBError(err)
-}
-
-func (w *TransactionStoreTransaction) AddValidationRecord(ctx context.Context, txID string, meta map[string][]byte) error {
-	logger.DebugfContext(ctx, "adding validation record [%s]", txID)
-	if w.txn == nil {
-		return errors.New("no db transaction in progress")
-	}
-	md, err := marshal(meta)
-	if err != nil {
-		return errors.New("can't marshal metadata")
-	}
-	now := time.Now().UTC()
-
-	query, args := q.InsertInto(w.table.Validations).
-		Fields("tx_id", "metadata", "stored_at").
-		Row(txID, md, now).
-		Format()
-	logging.Debug(logger, query, txID, len(md), now)
-
-	_, err = w.txn.ExecContext(ctx, query, args...)
 
 	return ttxDBError(err)
 }

@@ -10,14 +10,14 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/tokens"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/tokens"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 type TokensUpgrade struct {
@@ -39,7 +39,7 @@ type TokensUpgradeInitiatorView struct {
 	*TokensUpgrade
 }
 
-func (i *TokensUpgradeInitiatorView) Call(context view.Context) (interface{}, error) {
+func (i *TokensUpgradeInitiatorView) Call(context view.Context) (any, error) {
 	// First, the initiator selects the tokens to upgrade, namely those that are unsupported.
 	tms, err := token.GetManagementService(context, token.WithTMSID(i.TMSID))
 	assert.NoError(err, "failed getting management service")
@@ -91,7 +91,7 @@ func (i *TokensUpgradeInitiatorView) Call(context view.Context) (interface{}, er
 	// The initiator becomes a responder.
 	// This is a trick to the reuse the same API independently of the role a party plays.
 	return context.RunView(nil, view.AsResponder(session), view.WithViewCall(
-		func(context view.Context) (interface{}, error) {
+		func(context view.Context) (any, error) {
 			// At some point, the recipient receives the token transaction that in the meantime has been assembled
 			tx, err := ttx.ReceiveTransaction(context)
 			assert.NoError(err, "failed to receive tokens")
@@ -136,14 +136,14 @@ type TokensUpgradeResponderView struct {
 	Auditor string
 }
 
-func (p *TokensUpgradeResponderView) Call(context view.Context) (interface{}, error) {
+func (p *TokensUpgradeResponderView) Call(context view.Context) (any, error) {
 	// First the issuer receives the upgrade request
 	upgradeRequest, err := ttx.ReceiveTokensUpgradeRequest(context)
 	assert.NoError(err, "failed to receive upgrade request")
 
 	// Now we have an inversion of roles. The issuer becomes an initiator.
 	// This is a trick to reuse the code used in IssueCashView
-	return context.RunView(nil, view.AsInitiator(), view.WithViewCall(func(context view.Context) (interface{}, error) {
+	return context.RunView(nil, view.AsInitiator(), view.WithViewCall(func(context view.Context) (any, error) {
 		// Before assembling the transaction, the issuer can perform any activity that best fits the business process.
 		// In this example, if the token type is USD, the issuer checks that no more than 230 units of USD
 		// have been issued already including the current request.

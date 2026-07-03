@@ -9,21 +9,22 @@ package interop
 import (
 	"crypto"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 
+	token3 "github.com/LFDT-Panurus/panurus/integration/token"
+	common2 "github.com/LFDT-Panurus/panurus/integration/token/common"
+	"github.com/LFDT-Panurus/panurus/integration/token/fungible/views"
+	views2 "github.com/LFDT-Panurus/panurus/integration/token/interop/views"
+	"github.com/LFDT-Panurus/panurus/integration/token/interop/views/htlc"
+	"github.com/LFDT-Panurus/panurus/token"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	token3 "github.com/hyperledger-labs/fabric-token-sdk/integration/token"
-	common2 "github.com/hyperledger-labs/fabric-token-sdk/integration/token/common"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/views"
-	views2 "github.com/hyperledger-labs/fabric-token-sdk/integration/token/interop/views"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/token/interop/views/htlc"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"github.com/onsi/gomega"
 )
 
@@ -197,14 +198,7 @@ func CheckOwnerStore(network *integration.Infrastructure, tmsID token.TMSID, exp
 
 			gomega.Expect(errorMessages).To(gomega.HaveLen(len(expectedErrors)), "expected %d error messages from [%s], got [% v]", len(expectedErrors), id, errorMessages)
 			for _, expectedError := range expectedErrors {
-				found := false
-				for _, message := range errorMessages {
-					if message == expectedError {
-						found = true
-
-						break
-					}
-				}
+				found := slices.Contains(errorMessages, expectedError)
 				gomega.Expect(found).To(gomega.BeTrue(), "cannot find error message [%s] in [% v]", expectedError, errorMessages)
 			}
 		}

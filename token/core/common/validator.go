@@ -10,9 +10,9 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
 )
 
 // MetadataCounterID defines the type for metadata counter identifiers.
@@ -69,7 +69,7 @@ type Validator[P driver.PublicParameters, T driver.Input, TA driver.TransferActi
 
 	// MinProtocolVersion specifies the minimum protocol version required for token requests.
 	// If set to 0, no minimum version is enforced (accepts all versions).
-	// If set to a specific version (e.g., driver.ProtocolV2), only requests with that version
+	// If set to a specific version (e.g., driver.ProtocolV1), only requests with that version
 	// or higher will be accepted, rejecting older protocol versions.
 	MinProtocolVersion uint32
 }
@@ -103,7 +103,7 @@ func (v *Validator[P, T, TA, IA, DS]) SetMinProtocolVersion(version uint32) {
 }
 
 // VerifyTokenRequestFromRaw verifies a token request from its raw representation.
-func (v *Validator[P, T, TA, IA, DS]) VerifyTokenRequestFromRaw(ctx context.Context, getState driver.GetStateFnc, anchor driver.TokenRequestAnchor, raw []byte) ([]interface{}, driver.ValidationAttributes, error) {
+func (v *Validator[P, T, TA, IA, DS]) VerifyTokenRequestFromRaw(ctx context.Context, getState driver.GetStateFnc, anchor driver.TokenRequestAnchor, raw []byte) ([]any, driver.ValidationAttributes, error) {
 	logger.DebugfContext(ctx, "Verify token request from raw")
 	if len(raw) == 0 {
 		return nil, nil, errors.New("empty token request")
@@ -134,11 +134,25 @@ func (v *Validator[P, T, TA, IA, DS]) VerifyTokenRequestFromRaw(ctx context.Cont
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to marshal signed token request")
 	}
-	signatures := make([][]byte, 0, len(tr.AuditorSignatures)+len(tr.Signatures))
-	for _, sig := range tr.AuditorSignatures {
-		signatures = append(signatures, sig.Signature)
+	auditorSignatures := make([][]byte, 0, len(tr.Signatures))
+	actionSignatures := make([][]byte, 0, len(tr.Signatures))
+	for _, sig := range tr.Signatures {
+		if sig == nil {
+			continue
+		}
+		if sig.Auditor != nil {
+			auditorSignatures = append(auditorSignatures, sig.Auditor.Signature)
+
+			continue
+		}
+		if sig.Action != nil {
+			actionSignatures = append(actionSignatures, sig.Action.Signature)
+		}
 	}
-	signatures = append(signatures, tr.Signatures...)
+	// Merge signatures with auditor signatures first
+	signatures := make([][]byte, 0, len(auditorSignatures)+len(actionSignatures))
+	signatures = append(signatures, auditorSignatures...)
+	signatures = append(signatures, actionSignatures...)
 
 	attributes := make(driver.ValidationAttributes)
 	attributes[TokenRequestToSign] = signed
@@ -160,7 +174,7 @@ func (v *Validator[P, T, TA, IA, DS]) VerifyTokenRequest(
 	anchor driver.TokenRequestAnchor,
 	tr *driver.TokenRequest,
 	attributes driver.ValidationAttributes,
-) ([]interface{}, driver.ValidationAttributes, error) {
+) ([]any, driver.ValidationAttributes, error) {
 	if err := v.VerifyAuditing(ctx, anchor, tr, ledger, signatureProvider, attributes); err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to verifier auditor's signature [%s]", anchor)
 	}
@@ -177,7 +191,7 @@ func (v *Validator[P, T, TA, IA, DS]) VerifyTokenRequest(
 		return nil, nil, errors.Wrapf(err, "failed to verify transfer actions [%s]", anchor)
 	}
 
-	var actions []interface{}
+	var actions []any
 	for _, action := range ia {
 		actions = append(actions, action)
 	}
@@ -189,7 +203,7 @@ func (v *Validator[P, T, TA, IA, DS]) VerifyTokenRequest(
 }
 
 // UnmarshalActions unmarshals the actions from the passed raw representation of a token request.
-func (v *Validator[P, T, TA, IA, DS]) UnmarshalActions(raw []byte) ([]interface{}, error) {
+func (v *Validator[P, T, TA, IA, DS]) UnmarshalActions(raw []byte) ([]any, error) {
 	tr := &driver.TokenRequest{}
 	err := tr.FromBytes(raw)
 	if err != nil {
@@ -200,7 +214,7 @@ func (v *Validator[P, T, TA, IA, DS]) UnmarshalActions(raw []byte) ([]interface{
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal actions")
 	}
-	var res []interface{}
+	var res []any
 	for _, action := range ia {
 		res = append(res, action)
 	}
@@ -352,6 +366,7 @@ func (v *Validator[P, T, TA, IA, DS]) VerifyAuditing(
 		Deserializer:      v.Deserializer,
 		Ledger:            ledger,
 		SignatureProvider: signatureProvider,
+		MetadataCounter:   map[MetadataCounterID]int{},
 		Attributes:        attributes,
 	}
 	for _, v := range v.AuditingValidators {

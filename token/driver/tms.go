@@ -32,7 +32,7 @@ func (t TMSID) Equal(tmsid TMSID) bool {
 
 // TokenManagerService is the core entry point of the Driver API. It provides access to a comprehensive
 // suite of services for token issuance, transfer, auditing, and management. Each driver implementation
-// must provide a concrete implementation of this interface to enable the SDK to interact with its
+// must provide a concrete implementation of this interface to enable Panurus to interact with its
 // specific token technology.
 type TokenManagerService interface {
 	// IssueService returns an instance of the IssueService interface, which manages the issuance of new tokens.
@@ -78,7 +78,7 @@ type ServiceOptions struct {
 	// PublicParams contains the public params to use to instantiate the driver
 	PublicParams []byte
 	// Params is used to store any application specific parameter
-	Params map[string]interface{}
+	Params map[string]any
 }
 
 func (o ServiceOptions) String() string {

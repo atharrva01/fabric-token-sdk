@@ -14,11 +14,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	drivermock "github.com/hyperledger-labs/fabric-token-sdk/token/driver/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver/protos-go/pp"
+	"github.com/LFDT-Panurus/panurus/token/core"
+	"github.com/LFDT-Panurus/panurus/token/core/mock"
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	drivermock "github.com/LFDT-Panurus/panurus/token/driver/mock"
+	"github.com/LFDT-Panurus/panurus/token/driver/protos-go/v1/pp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -191,7 +191,7 @@ func TestTMSProvider(t *testing.T) {
 
 			tmsConfig := &drivermock.Configuration{}
 			configService.ConfigurationForReturns(tmsConfig, nil)
-			tmsConfig.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+			tmsConfig.UnmarshalKeyStub = func(key string, rawVal any) error {
 				if key == "publicParameters" {
 					rawVal.(*core.PublicParameters).Path = ppPath
 				}
@@ -210,7 +210,7 @@ func TestTMSProvider(t *testing.T) {
 
 			// Error case: ReadFile fails (e.g. path does not exist).
 			opts.Network = "n4-err2"
-			tmsConfig.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+			tmsConfig.UnmarshalKeyStub = func(key string, rawVal any) error {
 				if key == "publicParameters" {
 					rawVal.(*core.PublicParameters).Path = "non-existent"
 				}
@@ -222,7 +222,7 @@ func TestTMSProvider(t *testing.T) {
 
 			// Error case: Path is empty in configuration.
 			opts.Network = "n4-empty"
-			tmsConfig.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+			tmsConfig.UnmarshalKeyStub = func(key string, rawVal any) error {
 				if key == "publicParameters" {
 					rawVal.(*core.PublicParameters).Path = ""
 				}

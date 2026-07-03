@@ -9,8 +9,8 @@ package ttx
 import (
 	"reflect"
 
+	"github.com/LFDT-Panurus/panurus/token"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
 )
 
 var defaultDurationBuckets = []float64{.01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 30}
@@ -22,7 +22,7 @@ var defaultDurationBuckets = []float64{.01, .025, .05, .1, .25, .5, 1, 2.5, 5, 1
 const defaultNativeHistogramBucketFactor = 1.1
 
 var (
-	spKey = reflect.TypeOf((*Metrics)(nil))
+	spKey = reflect.TypeFor[*Metrics]()
 
 	endorsedTransactions = metrics.CounterOpts{
 		Name:       "endorsed_transactions",

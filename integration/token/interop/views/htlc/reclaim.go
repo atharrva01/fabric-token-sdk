@@ -9,12 +9,12 @@ package htlc
 import (
 	"encoding/json"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/interop/htlc"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/interop/htlc"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
 )
 
 // ReclaimAll contains the input information to reclaim tokens
@@ -30,7 +30,7 @@ type ReclaimAllView struct {
 	*ReclaimAll
 }
 
-func (r *ReclaimAllView) Call(context view.Context) (interface{}, error) {
+func (r *ReclaimAllView) Call(context view.Context) (any, error) {
 	// The sender will select tokens owned by this wallet
 	senderWallet := htlc.GetWallet(context, r.Wallet, token.WithTMSID(r.TMSID))
 	assert.NotNil(senderWallet, "sender wallet [%s] not found", r.Wallet)
@@ -90,7 +90,7 @@ type ReclaimByHashView struct {
 	*ReclaimByHash
 }
 
-func (r *ReclaimByHashView) Call(context view.Context) (interface{}, error) {
+func (r *ReclaimByHashView) Call(context view.Context) (any, error) {
 	// The sender will select tokens owned by this wallet
 	senderWallet := htlc.GetWallet(context, r.Wallet, token.WithTMSID(r.TMSID))
 	assert.NotNil(senderWallet, "sender wallet [%s] not found", r.Wallet)
@@ -150,7 +150,7 @@ type CheckExistenceReceivedExpiredByHashView struct {
 	*CheckExistenceReceivedExpiredByHash
 }
 
-func (r *CheckExistenceReceivedExpiredByHashView) Call(context view.Context) (interface{}, error) {
+func (r *CheckExistenceReceivedExpiredByHashView) Call(context view.Context) (any, error) {
 	// The sender will select tokens owned by this wallet
 	senderWallet := htlc.GetWallet(context, r.Wallet, token.WithTMSID(r.TMSID))
 	assert.NotNil(senderWallet, "sender wallet [%s] not found", r.Wallet)

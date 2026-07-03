@@ -9,10 +9,10 @@ package config_test
 import (
 	"testing"
 
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/config"
+	"github.com/LFDT-Panurus/panurus/token/services/config/mocks"
 	fscconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/config"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/config/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -45,9 +45,9 @@ func TestLookupNamespace(t *testing.T) {
 	tmsID1 := driver.TMSID{Network: "n1", Channel: "c1", Namespace: "ns1"}
 	tmsID2 := driver.TMSID{Network: "n2", Channel: "c2", Namespace: "ns2"}
 
-	cp.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+	cp.UnmarshalKeyStub = func(key string, rawVal any) error {
 		if key == TMSPath {
-			*rawVal.(*map[interface{}]interface{}) = map[interface{}]interface{}{
+			*rawVal.(*map[string]any) = map[string]any{
 				"id1": nil,
 				"id2": nil,
 			}
@@ -75,14 +75,14 @@ func TestLookupNamespace(t *testing.T) {
 	// Test Case: No Hit
 	ns, err = s.LookupNamespace("n3", "c3")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no token-sdk configuration")
+	assert.Contains(t, err.Error(), "no configuration")
 	assert.Empty(t, ns)
 
 	// Test Case: Multiple Hits
 	tmsID3 := driver.TMSID{Network: "n1", Channel: "c1", Namespace: "ns3"}
-	cp.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+	cp.UnmarshalKeyStub = func(key string, rawVal any) error {
 		if key == TMSPath {
-			*rawVal.(*map[interface{}]interface{}) = map[interface{}]interface{}{
+			*rawVal.(*map[string]any) = map[string]any{
 				"id1": nil,
 				"id3": nil,
 			}
@@ -108,7 +108,7 @@ func TestLookupNamespace(t *testing.T) {
 
 	_, err = s.LookupNamespace("n1", "c1")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "multiple token-sdk configurations")
+	assert.Contains(t, err.Error(), "multiple configurations")
 }
 
 func TestConfigurationFor(t *testing.T) {
@@ -116,9 +116,9 @@ func TestConfigurationFor(t *testing.T) {
 	s := config.NewService(cp)
 
 	tmsID1 := driver.TMSID{Network: "n1", Channel: "c1", Namespace: "ns1"}
-	cp.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+	cp.UnmarshalKeyStub = func(key string, rawVal any) error {
 		if key == TMSPath {
-			*rawVal.(*map[interface{}]interface{}) = map[interface{}]interface{}{
+			*rawVal.(*map[string]any) = map[string]any{
 				"id1": nil,
 			}
 
@@ -172,9 +172,9 @@ func TestAddConfiguration(t *testing.T) {
 
 	// Test Case: Already Exists
 	// Initial state has "new" (id1 in previous tests, but let's use "new_id" here)
-	cp.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+	cp.UnmarshalKeyStub = func(key string, rawVal any) error {
 		if key == TMSPath {
-			*rawVal.(*map[interface{}]interface{}) = map[interface{}]interface{}{
+			*rawVal.(*map[string]any) = map[string]any{
 				"new_id": nil,
 			}
 

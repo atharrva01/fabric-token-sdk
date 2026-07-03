@@ -10,12 +10,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
 )
 
 type AcceptCashView struct{}
 
-func (a *AcceptCashView) Call(context view.Context) (interface{}, error) {
+func (a *AcceptCashView) Call(context view.Context) (any, error) {
 	// The recipient of a token (issued or transfer) responds, as first operation,
 	// to a request for a recipient.
 	// The recipient can do that by using the following code.

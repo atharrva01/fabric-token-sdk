@@ -10,16 +10,16 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/interop/htlc"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/tokens"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/interop/htlc"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/tokens"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 type TokenTransactionDB interface {
@@ -39,7 +39,7 @@ type CheckTTXDBView struct {
 	*CheckTTXDB
 }
 
-func (m *CheckTTXDBView) Call(context view.Context) (interface{}, error) {
+func (m *CheckTTXDBView) Call(context view.Context) (any, error) {
 	// prepare
 	defaultOwnerWallet := htlc.GetWallet(context, "", token.WithTMSID(m.TMSID))
 	if defaultOwnerWallet != nil {
@@ -84,7 +84,7 @@ type PruneInvalidUnspentTokensView struct {
 	*PruneInvalidUnspentTokens
 }
 
-func (p *PruneInvalidUnspentTokensView) Call(context view.Context) (interface{}, error) {
+func (p *PruneInvalidUnspentTokensView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(p.TMSID))
 	assert.NoError(err, "failed getting management service")
 	assert.NotNil(tms, "cannot find tms [%s]", p.TMSID)
@@ -112,7 +112,7 @@ type ListVaultUnspentTokensView struct {
 	*ListVaultUnspentTokens
 }
 
-func (l *ListVaultUnspentTokensView) Call(context view.Context) (interface{}, error) {
+func (l *ListVaultUnspentTokensView) Call(context view.Context) (any, error) {
 	net, err := token.GetManagementService(context, token.WithTMSID(l.TMSID))
 	assert.NoError(err, "failed getting management service")
 	assert.NotNil(net, "cannot find tms [%s]", l.TMSID)
@@ -139,7 +139,7 @@ type CheckIfExistsInVaultView struct {
 	*CheckIfExistsInVault
 }
 
-func (c *CheckIfExistsInVaultView) Call(context view.Context) (interface{}, error) {
+func (c *CheckIfExistsInVaultView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(c.TMSID))
 	assert.NoError(err, "failed getting management service")
 	assert.NotNil(tms, "cannot find tms [%s]", c.TMSID)

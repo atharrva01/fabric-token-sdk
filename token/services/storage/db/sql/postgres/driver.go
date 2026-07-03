@@ -12,19 +12,19 @@ import (
 	"fmt"
 	"strings"
 
+	driver3 "github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	common3 "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	driver3 "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
-	common3 "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/sql/common"
+	fscPostgres "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 // configProvider defines the interface for retrieving database configuration.
 type configProvider interface {
 	// GetOpts returns the Postgres configuration for the given persistence name and parameters.
-	GetOpts(name driver2.PersistenceName, params ...string) (*postgres.Config, error)
+	GetOpts(name driver2.PersistenceName, params ...string) (*fscPostgres.Config, error)
 }
 
 // Driver implements the token storage driver for Postgres.
@@ -32,32 +32,33 @@ type Driver struct {
 	cp configProvider
 
 	// Lazy providers for various store types to ensure they are initialized only when needed.
-	TokenLock lazy.Provider[postgres.Config, *TokenLockStore]
-	Wallet    lazy.Provider[postgres.Config, *WalletStore]
-	Identity  lazy.Provider[postgres.Config, *IdentityStore]
-	Token     lazy.Provider[postgres.Config, *TokenStore]
-	AuditTx   lazy.Provider[postgres.Config, *AuditTransactionStore]
-	OwnerTx   lazy.Provider[postgres.Config, *TransactionStore]
-	KeyStore  lazy.Provider[postgres.Config, *KeystoreStore]
+	TokenLock lazy.Provider[fscPostgres.Config, *TokenLockStore]
+	Wallet    lazy.Provider[fscPostgres.Config, *WalletStore]
+	Identity  lazy.Provider[fscPostgres.Config, *IdentityStore]
+	Token     lazy.Provider[fscPostgres.Config, *TokenStore]
+	AuditTx   lazy.Provider[fscPostgres.Config, *AuditTransactionStore]
+	OwnerTx   lazy.Provider[fscPostgres.Config, *TransactionStore]
+	Endorser  lazy.Provider[fscPostgres.Config, *EndorserStore]
+	KeyStore  lazy.Provider[fscPostgres.Config, *KeystoreStore]
 }
 
 // NewNamedDriver returns a NamedDriver for Postgres.
-func NewNamedDriver(config driver3.Config, dbProvider postgres.DbProvider) driver3.NamedDriver {
+func NewNamedDriver(config driver3.Config, dbProvider fscPostgres.DbProvider) driver3.NamedDriver {
 	return driver3.NamedDriver{
-		Name:   postgres.Persistence,
+		Name:   fscPostgres.Persistence,
 		Driver: NewDriverWithDbProvider(config, dbProvider),
 	}
 }
 
 // NewDriver returns a new Driver for Postgres using the default database provider.
 func NewDriver(config driver3.Config) *Driver {
-	return NewDriverWithDbProvider(config, postgres.NewDbProvider())
+	return NewDriverWithDbProvider(config, fscPostgres.NewDbProvider())
 }
 
 // NewDriverWithDbProvider returns a new Driver for Postgres using the given database provider.
-func NewDriverWithDbProvider(config driver3.Config, dbProvider postgres.DbProvider) *Driver {
+func NewDriverWithDbProvider(config driver3.Config, dbProvider fscPostgres.DbProvider) *Driver {
 	d := &Driver{
-		cp: postgres.NewConfigProvider(common.NewConfig(config)),
+		cp: fscPostgres.NewConfigProvider(common.NewConfig(config)),
 	}
 
 	d.TokenLock = newProviderWithKeyMapper(dbProvider, NewTokenLockStore, "tokenlock")
@@ -66,15 +67,16 @@ func NewDriverWithDbProvider(config driver3.Config, dbProvider postgres.DbProvid
 	d.Token = newTokenStoreProvider(dbProvider)
 	d.AuditTx = newProviderWithKeyMapper(dbProvider, NewAuditTransactionStore, "audittx")
 	d.OwnerTx = newTransactionStoreProvider(dbProvider)
+	d.Endorser = newEndorserStoreProvider(dbProvider)
 	d.KeyStore = newProviderWithKeyMapper(dbProvider, NewKeystoreStore, "keystore")
 
 	return d
 }
 
 // newTokenStoreProvider returns a lazy provider for TokenStore.
-func newTokenStoreProvider(dbProvider postgres.DbProvider) lazy.Provider[postgres.Config, *TokenStore] {
-	return lazy.NewProviderWithKeyMapper(key, func(o postgres.Config) (*TokenStore, error) {
-		opts := postgres.Opts{
+func newTokenStoreProvider(dbProvider fscPostgres.DbProvider) lazy.Provider[fscPostgres.Config, *TokenStore] {
+	return lazy.NewProviderWithKeyMapper(key, func(o fscPostgres.Config) (*TokenStore, error) {
+		opts := fscPostgres.Opts{
 			DataSource:      o.DataSource,
 			MaxOpenConns:    o.MaxOpenConns,
 			MaxIdleConns:    *o.MaxIdleConns,
@@ -117,9 +119,9 @@ func newTokenStoreProvider(dbProvider postgres.DbProvider) lazy.Provider[postgre
 }
 
 // newIdentityStoreProvider returns a lazy provider for IdentityStore.
-func newIdentityStoreProvider(dbProvider postgres.DbProvider) lazy.Provider[postgres.Config, *IdentityStore] {
-	return lazy.NewProviderWithKeyMapper(key, func(o postgres.Config) (*IdentityStore, error) {
-		opts := postgres.Opts{
+func newIdentityStoreProvider(dbProvider fscPostgres.DbProvider) lazy.Provider[fscPostgres.Config, *IdentityStore] {
+	return lazy.NewProviderWithKeyMapper(key, func(o fscPostgres.Config) (*IdentityStore, error) {
+		opts := fscPostgres.Opts{
 			DataSource:      o.DataSource,
 			MaxOpenConns:    o.MaxOpenConns,
 			MaxIdleConns:    *o.MaxIdleConns,
@@ -163,9 +165,9 @@ func newIdentityStoreProvider(dbProvider postgres.DbProvider) lazy.Provider[post
 }
 
 // newTransactionStoreProvider returns a lazy provider for TransactionStore with notifier support.
-func newTransactionStoreProvider(dbProvider postgres.DbProvider) lazy.Provider[postgres.Config, *TransactionStore] {
-	return lazy.NewProviderWithKeyMapper(key, func(o postgres.Config) (*TransactionStore, error) {
-		opts := postgres.Opts{
+func newTransactionStoreProvider(dbProvider fscPostgres.DbProvider) lazy.Provider[fscPostgres.Config, *TransactionStore] {
+	return lazy.NewProviderWithKeyMapper(key, func(o fscPostgres.Config) (*TransactionStore, error) {
+		opts := fscPostgres.Opts{
 			DataSource:      o.DataSource,
 			MaxOpenConns:    o.MaxOpenConns,
 			MaxIdleConns:    *o.MaxIdleConns,
@@ -277,10 +279,58 @@ func (d *Driver) NewOwnerTransaction(name driver2.PersistenceName, params ...str
 	return d.OwnerTx.Get(*opts)
 }
 
+// NewEndorser returns a new EndorserStore.
+func (d *Driver) NewEndorser(name driver2.PersistenceName, params ...string) (driver3.EndorserStore, error) {
+	opts, err := d.cp.GetOpts(name, params...)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.Endorser.Get(*opts)
+}
+
+// newEndorserStoreProvider returns a lazy provider for EndorserStore.
+func newEndorserStoreProvider(dbProvider fscPostgres.DbProvider) lazy.Provider[fscPostgres.Config, *EndorserStore] {
+	return lazy.NewProviderWithKeyMapper(key, func(o fscPostgres.Config) (*EndorserStore, error) {
+		opts := fscPostgres.Opts{
+			DataSource:      o.DataSource,
+			MaxOpenConns:    o.MaxOpenConns,
+			MaxIdleConns:    *o.MaxIdleConns,
+			MaxIdleTime:     *o.MaxIdleTime,
+			TablePrefix:     o.TablePrefix,
+			TableNameParams: o.TableNameParams,
+			Tracing:         o.Tracing,
+		}
+		dbs, err := dbProvider.Get(opts)
+		if err != nil {
+			return nil, err
+		}
+		tableNames, err := common3.GetTableNames(o.TablePrefix, o.TableNameParams...)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create endorser store (reuses validation table from transaction store)
+		p, err := NewEndorserStore(dbs, tableNames)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create schema if needed
+		if !o.SkipCreateTable {
+			if err := p.CreateSchema(); err != nil {
+				return nil, err
+			}
+		}
+
+		return p, nil
+	})
+}
+
 // newProviderWithKeyMapper returns a lazy provider for a DB object using a common constructor.
-func newProviderWithKeyMapper[V common.DBObject](dbProvider postgres.DbProvider, constructor common3.PersistenceConstructor[V], storeType string) lazy.Provider[postgres.Config, V] {
-	return lazy.NewProviderWithKeyMapper(key, func(o postgres.Config) (V, error) {
-		opts := postgres.Opts{
+func newProviderWithKeyMapper[V common.DBObject](dbProvider fscPostgres.DbProvider, constructor common3.PersistenceConstructor[V], storeType string) lazy.Provider[fscPostgres.Config, V] {
+	return lazy.NewProviderWithKeyMapper(key, func(o fscPostgres.Config) (V, error) {
+		opts := fscPostgres.Opts{
 			DataSource:      o.DataSource,
 			MaxOpenConns:    o.MaxOpenConns,
 			MaxIdleConns:    *o.MaxIdleConns,
@@ -312,7 +362,7 @@ func newProviderWithKeyMapper[V common.DBObject](dbProvider postgres.DbProvider,
 }
 
 // key returns a unique key for the given Postgres configuration.
-func key(k postgres.Config) string {
+func key(k fscPostgres.Config) string {
 	return "postgres" + k.DataSource + k.TablePrefix + strings.Join(k.TableNameParams, "_")
 }
 

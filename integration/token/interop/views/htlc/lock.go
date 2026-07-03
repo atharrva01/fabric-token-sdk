@@ -11,15 +11,15 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/interop/encoding"
+	"github.com/LFDT-Panurus/panurus/token/services/interop/htlc"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/interop/encoding"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/interop/htlc"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 // Lock contains the input information to lock a token
@@ -52,7 +52,7 @@ type LockView struct {
 	*Lock
 }
 
-func (hv *LockView) Call(context view.Context) (res interface{}, err error) {
+func (hv *LockView) Call(context view.Context) (res any, err error) {
 	var tx *htlc.Transaction
 	defer func() {
 		if e := recover(); e != nil {
@@ -141,7 +141,7 @@ func (p *LockViewFactory) NewView(in []byte) (view.View, error) {
 type LockAcceptView struct {
 }
 
-func (h *LockAcceptView) Call(context view.Context) (interface{}, error) {
+func (h *LockAcceptView) Call(context view.Context) (any, error) {
 	// The recipient of a token responds, as first operation,
 	// to a request for a recipient identity.
 	// The recipient can do that by using the following code.

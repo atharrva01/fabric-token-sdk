@@ -12,9 +12,9 @@ import (
 
 	scommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	tokensdriver "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
-	sqlcommon "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/sql/common"
+
+	tokensdriver "github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	sqlcommon "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/common"
 )
 
 // TokenStore wraps common.TokenStore to add advisory lock to schema creation
@@ -72,18 +72,23 @@ func (n *TokenNotifier) Subscribe(callback func(tokensdriver.Operation, tokensdr
 }
 
 func NewTokenStoreWithNotifier(dbs *scommon.RWDB, tableNames sqlcommon.TableNames, notifier *TokenNotifier) (*TokenStore, error) {
-	baseStore, err := sqlcommon.NewTokenStoreWithNotifier(
+	// Create cleanup leader factory using PostgreSQL advisory locks
+	cleanupLeaderFactory := NewCleanupLeaderFactory()
+
+	baseStore, err := sqlcommon.NewTokenStoreWithNotifierAndCleanup(
 		dbs.ReadDB,
 		dbs.WriteDB,
 		tableNames,
-		postgres.NewConditionInterpreter(),
+		NewConditionInterpreter(),
 		notifier,
+		cleanupLeaderFactory,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	// Wrap with postgres-specific store that adds advisory lock to schema
+
 	return &TokenStore{
 		TokenStore: baseStore,
 		writeDB:    dbs.WriteDB,

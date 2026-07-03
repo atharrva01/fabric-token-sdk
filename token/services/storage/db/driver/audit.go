@@ -21,7 +21,7 @@ type AuditTransactionStore interface {
 	NewTransactionStoreTransaction() (TransactionStoreTransaction, error)
 
 	// SetStatus sets the status of a TokenRequest
-	// (and with that, the associated ValidationRecord, Movement and Transaction)
+	// (and with that, the associated Movement and Transaction)
 	SetStatus(ctx context.Context, txID string, status TxStatus, message string) error
 
 	// GetStatus returns the status of a given transaction.
@@ -33,9 +33,6 @@ type AuditTransactionStore interface {
 
 	// QueryMovements returns a list of movement records
 	QueryMovements(ctx context.Context, params QueryMovementsParams) ([]*MovementRecord, error)
-
-	// QueryValidations returns an iterator over the validation records matching the passed params
-	QueryValidations(ctx context.Context, params QueryValidationRecordsParams) (ValidationRecordsIterator, error)
 
 	// QueryTokenRequests returns an iterator over the token requests matching the passed params
 	QueryTokenRequests(ctx context.Context, params QueryTokenRequestsParams) (TokenRequestIterator, error)
@@ -55,9 +52,15 @@ type AuditTransactionStore interface {
 
 	// ClaimPendingTransactions atomically claims a batch of Pending transactions for recovery processing.
 	// Transactions whose recovery lease expired are eligible again.
-	ClaimPendingTransactions(ctx context.Context, params RecoveryClaimParams) ([]*TransactionRecord, error)
+	// Returns the minimal projection (TxID + StoredAt) needed by the recovery loop;
+	// callers do not need the full TransactionRecord.
+	ClaimPendingTransactions(ctx context.Context, params RecoveryClaimParams) ([]*RecoveryClaim, error)
 
 	// ReleaseRecoveryClaim clears the recovery claim metadata for the given transaction if owned by owner.
 	// The message parameter is stored for audit/debugging purposes.
 	ReleaseRecoveryClaim(ctx context.Context, txID string, owner string, message string) error
+
+	// PrefixedTableName returns the formatted table name for the given logical table name,
+	// following the persistence naming rules of this store.
+	PrefixedTableName(name string) string
 }

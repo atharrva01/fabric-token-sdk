@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
+	token2 "github.com/LFDT-Panurus/panurus/token"
+	drivermock "github.com/LFDT-Panurus/panurus/token/driver/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/certifier/interactive"
+	"github.com/LFDT-Panurus/panurus/token/services/certifier/interactive/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/tokens"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token"
-	drivermock "github.com/hyperledger-labs/fabric-token-sdk/token/driver/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/certifier/interactive"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/certifier/interactive/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/tokens"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +49,7 @@ func makePopulatedQueryEngine(items []*token.UnspentToken) *mock.QueryEngineMock
 type unknownTopicEvent struct{}
 
 func (e *unknownTopicEvent) Topic() string { return "unregistered-topic" }
-func (e *unknownTopicEvent) Message() interface{} {
+func (e *unknownTopicEvent) Message() any {
 	return tokens.TokenMessage{TxID: "tx-unk", Index: 0}
 }
 
@@ -57,8 +57,8 @@ func (e *unknownTopicEvent) Message() interface{} {
 // tokens.TokenMessage, exercising the first early-return path in OnReceive.
 type wrongMsgTypeEvent struct{}
 
-func (e *wrongMsgTypeEvent) Topic() string        { return tokens.AddToken }
-func (e *wrongMsgTypeEvent) Message() interface{} { return 42 }
+func (e *wrongMsgTypeEvent) Topic() string { return tokens.AddToken }
+func (e *wrongMsgTypeEvent) Message() any  { return 42 }
 
 // ---------------------------------------------------------------------------
 // NewCertificationClient — notifier path

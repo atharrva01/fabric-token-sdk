@@ -11,21 +11,21 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	"github.com/LFDT-Panurus/panurus/token/services/utils"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/utils"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 type AuditView struct {
 	*token.TMSID
 }
 
-func (a *AuditView) Call(context view.Context) (interface{}, error) {
+func (a *AuditView) Call(context view.Context) (any, error) {
 	logger.Debugf("AuditView: [%s]", context.ID())
 	tx, err := ttx.ReceiveTransaction(context, TxOpts(a.TMSID, ttx.WithNoTransactionVerification())...)
 
@@ -44,10 +44,10 @@ func (a *AuditView) Call(context view.Context) (interface{}, error) {
 
 	// Check ValidationRecords
 	logger.Debugf("AuditView: check metadata [%s]", tx.ID())
-	opRaw := tx.ApplicationMetadata("github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/issue")
+	opRaw := tx.ApplicationMetadata("github.com/LFDT-Panurus/panurus/integration/token/fungible/issue")
 	if len(opRaw) != 0 {
 		assert.Equal([]byte("issue"), opRaw, "expected 'issue' application metadata")
-		metaRaw := tx.ApplicationMetadata("github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/meta")
+		metaRaw := tx.ApplicationMetadata("github.com/LFDT-Panurus/panurus/integration/token/fungible/meta")
 		assert.Equal([]byte("meta"), metaRaw, "expected 'meta' application metadata")
 	}
 	logger.Debugf("AuditView: check metadata done [%s]", tx.ID())
@@ -189,7 +189,7 @@ type RegisterAuditorView struct {
 	*RegisterAuditor
 }
 
-func (r *RegisterAuditorView) Call(context view.Context) (interface{}, error) {
+func (r *RegisterAuditorView) Call(context view.Context) (any, error) {
 	return context.RunView(ttx.NewRegisterAuditorView(
 		&AuditView{r.TMSID},
 		ServiceOpts(r.TMSID)...,
@@ -219,7 +219,7 @@ type CurrentHoldingView struct {
 	*CurrentHolding
 }
 
-func (r *CurrentHoldingView) Call(context view.Context) (interface{}, error) {
+func (r *CurrentHoldingView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(r.TMSID))
 	assert.NoError(err)
 	assert.NotNil(tms, "tms not found [%s]", r.TMSID)
@@ -260,7 +260,7 @@ type CurrentSpendingView struct {
 	*CurrentSpending
 }
 
-func (r *CurrentSpendingView) Call(context view.Context) (interface{}, error) {
+func (r *CurrentSpendingView) Call(context view.Context) (any, error) {
 	w := ttx.MyAuditorWallet(context, ServiceOpts(r.TMSID)...)
 	assert.NotNil(w, "failed getting default auditor wallet")
 
@@ -297,7 +297,7 @@ type SetTransactionAuditStatusView struct {
 	*SetTransactionAuditStatus
 }
 
-func (r *SetTransactionAuditStatusView) Call(context view.Context) (interface{}, error) {
+func (r *SetTransactionAuditStatusView) Call(context view.Context) (any, error) {
 	w := ttx.MyAuditorWallet(context)
 	assert.NotNil(w, "failed getting default auditor wallet")
 

@@ -97,13 +97,13 @@ func CheckBaseElement[E BaseElement](element E, curveID mathlib.CurveID) (err er
 	return nil
 }
 
-func isNilInterface(i interface{}) bool {
+func isNilInterface(i any) bool {
 	if i == nil {
 		return true
 	}
 	rv := reflect.ValueOf(i)
 
-	return rv.Kind() == reflect.Ptr && rv.IsNil()
+	return rv.Kind() == reflect.Pointer && rv.IsNil()
 }
 
 func InnerProduct(left []*mathlib.Zr, right []*mathlib.Zr, c *mathlib.Curve) *mathlib.Zr {
@@ -131,7 +131,7 @@ func BatchInverse(elems []*mathlib.Zr, curve *mathlib.Curve) []*mathlib.Zr {
 	// Forward pass: build prefix products in the inv array
 	inv[0] = elems[0] // No copy needed since we don't mutate inv[0]
 	for i := 1; i < n; i++ {
-		inv[i] = curve.ModMul(inv[i-1], elems[i], curve.GroupOrder)
+		inv[i] = curve.ModMul(inv[i-1], elems[i], curve.GroupOrder) // #nosec G602 -- i < n == len(elems)
 	}
 
 	// Single inversion of the total product

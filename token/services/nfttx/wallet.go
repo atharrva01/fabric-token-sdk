@@ -9,10 +9,10 @@ package nfttx
 import (
 	"context"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 type OwnerWallet struct {
@@ -21,7 +21,7 @@ type OwnerWallet struct {
 	Precision uint64
 }
 
-func (o *OwnerWallet) QueryByKey(ctx context.Context, state interface{}, key string, value string) error {
+func (o *OwnerWallet) QueryByKey(ctx context.Context, state any, key string, value string) error {
 	qe, err := NewQueryExecutor(o.ServiceProvider, o.ID(), o.Precision)
 	if err != nil {
 		return errors.WithMessagef(err, "failed to create query executor")

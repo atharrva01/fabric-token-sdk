@@ -7,17 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package ttx_test
 
 import (
+	"encoding/json"
+	"reflect"
 	"testing"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/driver/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	mock2 "github.com/LFDT-Panurus/panurus/token/services/ttx/dep/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx/dep/tokenapi"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	mock2 "github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx/dep/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx/dep/tokenapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,25 +81,17 @@ func newTestEndorseViewContext(t *testing.T, input *TestEndorseViewContextInput)
 	np.GetNetworkReturns(network, nil)
 
 	req := token.NewRequest(nil, "an_anchor")
-	req.Metadata.Issues = []*driver.IssueMetadata{
+	req.Metadata.Actions = []*driver.ActionMetadataEntry{
 		{
-			Issuer: driver.AuditableIdentity{
-				Identity: []byte("an_issuer"),
+			ActionID: 0,
+			IssueMetadata: &driver.IssueMetadata{
+				Issuer: driver.AuditableIdentity{
+					Identity: []byte("an_issuer"),
+				},
 			},
 		},
 	}
 	tms.NewRequestReturns(req, nil)
-
-	ctx := &mock2.Context{}
-	ctx.SessionReturns(session)
-	ctx.ContextReturns(t.Context())
-	ctx.GetServiceReturnsOnCall(0, tmsp, nil)
-	ctx.GetServiceReturnsOnCall(1, np, nil)
-	ctx.GetServiceReturnsOnCall(2, &endpoint.Service{}, nil)
-	ctx.GetServiceReturnsOnCall(3, np, nil)
-	ctx.GetServiceReturnsOnCall(4, tmsp, nil)
-	tx, err := ttx.NewTransaction(ctx, []byte("a_signer"))
-	require.NoError(t, err)
 
 	storage := &mock2.Storage{}
 	storage.AppendReturns(nil)
@@ -109,14 +103,42 @@ func newTestEndorseViewContext(t *testing.T, input *TestEndorseViewContextInput)
 	nis.SignReturns([]byte("an_ack_signature"), nil)
 	networkIdentityProvider.GetSignerReturns(nis, nil)
 
+	// Resolve services by their requested type rather than by call order, so the
+	// stub is robust to additional GetService lookups (e.g. envelope metrics).
+	getService := func(v any) (any, error) {
+		rt, ok := v.(reflect.Type)
+		if !ok {
+			return nil, errors.Errorf("unexpected service request [%T]", v)
+		}
+		switch rt.String() {
+		case "*dep.TokenManagementServiceProvider":
+			return tmsp, nil
+		case "*dep.NetworkProvider":
+			return np, nil
+		case "*dep.NetworkIdentityProvider":
+			return networkIdentityProvider, nil
+		case "*endpoint.Service":
+			return &endpoint.Service{}, nil
+		case "*ttx.StorageProvider":
+			return storageProvider, nil
+		case "*session.EnvelopeMetrics":
+			return nil, errors.New("envelope metrics not registered in test")
+		default:
+			return nil, errors.Errorf("unexpected service request [%s]", rt.String())
+		}
+	}
+
+	ctx := &mock2.Context{}
+	ctx.SessionReturns(session)
+	ctx.ContextReturns(t.Context())
+	ctx.GetServiceStub = getService
+	tx, err := ttx.NewTransaction(ctx, []byte("a_signer"))
+	require.NoError(t, err)
+
 	ctx = &mock2.Context{}
 	ctx.SessionReturns(session)
 	ctx.ContextReturns(t.Context())
-	ctx.GetServiceReturnsOnCall(0, storageProvider, nil)
-	ctx.GetServiceReturnsOnCall(1, np, nil)
-	ctx.GetServiceReturnsOnCall(2, tmsp, nil)
-	ctx.GetServiceReturnsOnCall(3, networkIdentityProvider, nil)
-	ctx.GetServiceReturnsOnCall(4, storageProvider, nil)
+	ctx.GetServiceStub = getService
 
 	txRaw, err := tx.Bytes()
 	require.NoError(t, err)
@@ -125,17 +147,15 @@ func newTestEndorseViewContext(t *testing.T, input *TestEndorseViewContextInput)
 	signatureRequest := &ttx.SignatureRequest{
 		Signer: input.IssuerIdentity,
 	}
-	signatureRequestRaw, err := signatureRequest.Bytes()
-	require.NoError(t, err)
 	ch <- &view.Message{
-		Payload: signatureRequestRaw,
+		Payload: mustEnvelopeBytes(t, ttx.TypeSignatureRequest, signatureRequest),
 	}
 	// then the transaction
 	ch <- &view.Message{
-		Payload: txRaw,
+		Payload: mustEnvelopeBytes(t, ttx.TypeTransaction, &ttx.TransactionPayload{Raw: txRaw}),
 	}
 
-	ctx.RunViewStub = func(v view.View, option ...view.RunViewOption) (interface{}, error) {
+	ctx.RunViewStub = func(v view.View, option ...view.RunViewOption) (any, error) {
 		return v.Call(ctx)
 	}
 
@@ -186,9 +206,12 @@ func TestEndorseView(t *testing.T) {
 			verify: func(ctx *TestEndorseViewContext, _ any) {
 				assert.Equal(t, 2, ctx.session.SendWithContextCallCount())
 				_, msg := ctx.session.SendWithContextArgsForCall(0)
-				assert.Equal(t, []byte("a_token_sigma"), msg)
+				var signaturePayload ttx.SignaturePayload
+				require.NoError(t, json.Unmarshal(mustUnwrapBody(t, msg, ttx.TypeSignature), &signaturePayload))
+				assert.Equal(t, []byte("a_token_sigma"), signaturePayload.Signature)
 				_, msg = ctx.session.SendWithContextArgsForCall(1)
-				assert.Equal(t, []byte("an_ack_signature"), msg)
+				require.NoError(t, json.Unmarshal(mustUnwrapBody(t, msg, ttx.TypeSignature), &signaturePayload))
+				assert.Equal(t, []byte("an_ack_signature"), signaturePayload.Signature)
 			},
 		},
 		{

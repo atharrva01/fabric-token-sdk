@@ -12,10 +12,10 @@ import (
 	"encoding/base64"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/interop/encoding"
+	"github.com/LFDT-Panurus/panurus/token/services/network"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/interop/encoding"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 func WithStartingTransaction(txID string) token.ServiceOption {
 	return func(o *token.ServiceOptions) error {
 		if o.Params == nil {
-			o.Params = map[string]interface{}{}
+			o.Params = map[string]any{}
 		}
 		o.Params[ScanForPreImageStartingTransaction] = txID
 
@@ -41,7 +41,7 @@ func WithStartingTransaction(txID string) token.ServiceOption {
 func WithStopOnLastTransaction() token.ServiceOption {
 	return func(o *token.ServiceOptions) error {
 		if o.Params == nil {
-			o.Params = map[string]interface{}{}
+			o.Params = map[string]any{}
 		}
 		o.Params[StopScanningOnLastTransaction] = True
 

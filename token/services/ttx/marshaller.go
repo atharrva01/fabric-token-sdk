@@ -10,11 +10,11 @@ import (
 	"encoding/asn1"
 	"sort"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/core/common/encoding/json"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx/dep"
+	"github.com/LFDT-Panurus/panurus/token/services/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/common/encoding/json"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx/dep"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/utils"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -23,11 +23,11 @@ var (
 	ErrNamespaceNotSet = errors.New("namespace not set")
 )
 
-func Marshal(v interface{}) ([]byte, error) {
+func Marshal(v any) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func Unmarshal(data []byte, v interface{}) error {
+func Unmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
 

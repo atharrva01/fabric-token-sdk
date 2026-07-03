@@ -11,9 +11,10 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	dbtest2 "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/dbtest"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
+
+	dbtest2 "github.com/LFDT-Panurus/panurus/token/services/storage/db/dbtest"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	fscPostgres "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,8 +60,15 @@ func TestKeyStore(t *testing.T) {
 	dbtest2.KeyStoreTest(t, func(name string) driver.Driver { return NewDriver(postgresCfg(pgConnStr, name)) })
 }
 
+func TestEndorser(t *testing.T) {
+	terminate, pgConnStr := startContainer(t)
+	defer terminate()
+
+	dbtest2.EndorserTest(t, func(name string) driver.Driver { return NewDriver(postgresCfg(pgConnStr, name)) })
+}
+
 func postgresCfg(pgConnStr string, name string) *mock.ConfigProvider {
-	return multiplexed.MockTypeConfig(postgres.Persistence, postgres.Config{
+	return multiplexed.MockTypeConfig(fscPostgres.Persistence, fscPostgres.Config{
 		DataSource:   pgConnStr,
 		TablePrefix:  name,
 		MaxOpenConns: 10,
@@ -69,8 +77,8 @@ func postgresCfg(pgConnStr string, name string) *mock.ConfigProvider {
 
 func startContainer(t *testing.T) (func(), string) {
 	t.Helper()
-	cfg := postgres.DefaultConfig(postgres.WithDBName("test-db"))
-	terminate, _, err := postgres.StartPostgres(t.Context(), cfg, nil)
+	cfg := fscPostgres.DefaultConfig(fscPostgres.WithDBName("test-db"))
+	terminate, _, err := fscPostgres.StartPostgres(t.Context(), cfg, nil)
 	require.NoError(t, err)
 
 	return terminate, cfg.DataSource()

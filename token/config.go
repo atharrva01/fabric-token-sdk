@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package token
 
 import (
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/driver"
 )
 
-// Configuration manages the configuration of the token-sdk
+// Configuration manages the configuration of Panurus
 type Configuration struct {
 	cm driver.Configuration
 }
@@ -26,6 +26,6 @@ func (m *Configuration) IsSet(key string) bool {
 }
 
 // UnmarshalKey takes a single key and unmarshals it into a Struct
-func (m *Configuration) UnmarshalKey(key string, rawVal interface{}) error {
+func (m *Configuration) UnmarshalKey(key string, rawVal any) error {
 	return m.cm.UnmarshalKey(key, rawVal)
 }

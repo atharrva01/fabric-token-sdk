@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
 )
 
 var logger = logging.MustGetLogger()
@@ -17,6 +17,8 @@ var logger = logging.MustGetLogger()
 var ncProvider = db.NewTableNameCreator("fsc")
 
 type TableNames struct {
+	Prefix                 string
+	Params                 []string
 	Movements              string
 	Transactions           string
 	Requests               string
@@ -32,6 +34,8 @@ type TableNames struct {
 	Signers                string
 	TokenLocks             string
 	KeyStore               string
+	EIDLeases              string
+	TokenSKICleanups       string
 }
 
 type PersistenceConstructor[V common.DBObject] func(*common.RWDB, TableNames) (V, error)
@@ -43,6 +47,8 @@ func GetTableNames(prefix string, params ...string) (TableNames, error) {
 	}
 
 	return TableNames{
+		Prefix:                 prefix,
+		Params:                 params,
 		Movements:              nc.MustFormat("movements", params...),
 		Transactions:           nc.MustFormat("txs", params...),
 		TransactionEndorseAck:  nc.MustFormat("tx_ends", params...),
@@ -58,5 +64,7 @@ func GetTableNames(prefix string, params ...string) (TableNames, error) {
 		IdentityInfo:           nc.MustFormat("id_info", params...),
 		Signers:                nc.MustFormat("id_signers", params...),
 		KeyStore:               nc.MustFormat("key_store", params...),
+		EIDLeases:              nc.MustFormat("eid_leases", params...),
+		TokenSKICleanups:       nc.MustFormat("tkn_ski_cleanups", params...),
 	}, nil
 }

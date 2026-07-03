@@ -10,10 +10,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/model"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/service/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/service/runner"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/token/fungible/views"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/model"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/service/logging"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/service/runner"
+	"github.com/LFDT-Panurus/panurus/integration/token/fungible/views"
 )
 
 // viewRunner enhances the underlying SuiteRunner by registering the auditor on start.
@@ -36,7 +36,7 @@ func NewViewRunner(runner runner.SuiteRunner, userProvider *ViewUserProvider, lo
 }
 
 type viewClient interface {
-	CallView(fid string, in []byte) (interface{}, error)
+	CallView(fid string, in []byte) (any, error)
 }
 
 func (r *viewRunner) Start(ctx context.Context) error {

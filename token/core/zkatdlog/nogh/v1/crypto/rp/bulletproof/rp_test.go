@@ -14,8 +14,8 @@ import (
 	"testing"
 
 	math "github.com/IBM/mathlib"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/zkatdlog/nogh/v1/crypto/rp/bulletproof"
-	benchmark2 "github.com/hyperledger-labs/fabric-token-sdk/token/services/benchmark"
+	"github.com/LFDT-Panurus/panurus/token/core/zkatdlog/nogh/v1/crypto/rp/bulletproof"
+	benchmark2 "github.com/LFDT-Panurus/panurus/token/services/benchmark"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,7 +51,7 @@ func newBfSetup(curveID math.CurveID, b uint64, value int64) (*bfSetup, error) {
 	P := curve.GenG1.Mul(curve.NewRandomZr(rand))
 	H := curve.GenG1.Mul(curve.NewRandomZr(rand))
 	G := curve.GenG1.Mul(curve.NewRandomZr(rand))
-	for i := 0; i < len(leftGens); i++ {
+	for i := range leftGens {
 		leftGens[i] = curve.HashToG1([]byte(strconv.Itoa(2 * i)))
 		rightGens[i] = curve.HashToG1([]byte(strconv.Itoa(2*i + 1)))
 	}

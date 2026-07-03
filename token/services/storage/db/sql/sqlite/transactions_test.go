@@ -10,8 +10,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
-	common2 "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/sql/common"
+	common2 "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/common"
 )
 
 func mockTransactionsStore(db *sql.DB) *common2.TransactionStore {
@@ -21,7 +20,7 @@ func mockTransactionsStore(db *sql.DB) *common2.TransactionStore {
 		Requests:              "REQUESTS",
 		Validations:           "VALIDATIONS",
 		TransactionEndorseAck: "TRANSACTION_ENDORSE_ACK",
-	}, sqlite.NewConditionInterpreter(), sqlite.NewPaginationInterpreter())
+	}, NewConditionInterpreter(), NewPaginationInterpreter())
 
 	return store
 }
@@ -45,10 +44,6 @@ func TestQueryTransactions(t *testing.T) {
 
 func TestGetStatus(t *testing.T) {
 	common2.TestGetStatus(t, mockTransactionsStore)
-}
-
-func TestQueryValidations(t *testing.T) {
-	common2.TestQueryValidations(t, mockTransactionsStore, queryConstructorTraits)
 }
 
 func TestQueryTokenRequests(t *testing.T) {
@@ -77,8 +72,4 @@ func TestAWAddTokenRequest(t *testing.T) {
 
 func TestAWAddMovement(t *testing.T) {
 	common2.TestAWAddMovement(t, mockTransactionsStore)
-}
-
-func TestAWAddValidationRecord(t *testing.T) {
-	common2.TestAWAddValidationRecord(t, mockTransactionsStore)
 }

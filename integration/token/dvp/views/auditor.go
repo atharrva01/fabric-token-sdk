@@ -7,14 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
 )
 
 type AuditView struct{}
 
-func (a *AuditView) Call(context view.Context) (interface{}, error) {
+func (a *AuditView) Call(context view.Context) (any, error) {
 	tx, err := ttx.ReceiveTransaction(context)
 	assert.NoError(err, "failed receiving transaction")
 
@@ -31,7 +31,7 @@ func (a *AuditView) Call(context view.Context) (interface{}, error) {
 
 type RegisterAuditorView struct{}
 
-func (r *RegisterAuditorView) Call(context view.Context) (interface{}, error) {
+func (r *RegisterAuditorView) Call(context view.Context) (any, error) {
 	return context.RunView(ttx.NewRegisterAuditorView(
 		&AuditView{},
 	))

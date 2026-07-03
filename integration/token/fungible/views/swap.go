@@ -10,11 +10,11 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 // Swap contains the input information for a swap
@@ -39,7 +39,7 @@ type SwapInitiatorView struct {
 	*Swap
 }
 
-func (t *SwapInitiatorView) Call(context view.Context) (interface{}, error) {
+func (t *SwapInitiatorView) Call(context view.Context) (any, error) {
 	// As a first step operation, Alice contacts the recipient's FSC node
 	// to exchange identities to use to assign ownership of the transferred tokens.
 	me, other, err := ttx.ExchangeRecipientIdentities(context, t.AliceWallet, t.Bob)
@@ -138,7 +138,7 @@ func (p *SwapInitiatorViewFactory) NewView(in []byte) (view.View, error) {
 
 type SwapResponderView struct{}
 
-func (t *SwapResponderView) Call(context view.Context) (interface{}, error) {
+func (t *SwapResponderView) Call(context view.Context) (any, error) {
 	// As a first step, To responds to the request to exchange token recipient identities.
 	// To takes his token recipient identity from the default wallet (ttx.MyWallet(context)),
 	// if not otherwise specified.

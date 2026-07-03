@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	common3 "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/common"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
-	common3 "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/sql/common"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	. "github.com/onsi/gomega"
 )
 
@@ -27,6 +27,7 @@ func mockTokenLockStorePostgress(db *sql.DB) *TokenLockStore {
 
 	store, _ := NewTokenLockStore(&dbs, common3.TableNames{
 		TokenLocks: "TOKEN_LOCKS",
+		Tokens:     "TOKENS",
 		Requests:   "REQUESTS",
 	})
 
@@ -40,6 +41,7 @@ func mockTokenLockStore(db *sql.DB) *common3.TokenLockStore {
 
 	store, _ := NewTokenLockStore(&dbs, common3.TableNames{
 		TokenLocks: "TOKEN_LOCKS",
+		Tokens:     "TOKENS",
 		Requests:   "REQUESTS",
 	})
 

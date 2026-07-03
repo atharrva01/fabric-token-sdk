@@ -11,14 +11,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	driver_mock "github.com/hyperledger-labs/fabric-token-sdk/token/driver/mock"
-	token_mock "github.com/hyperledger-labs/fabric-token-sdk/token/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/nfttx"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/nfttx/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	driver_mock "github.com/LFDT-Panurus/panurus/token/driver/mock"
+	token_mock "github.com/LFDT-Panurus/panurus/token/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/nfttx"
+	"github.com/LFDT-Panurus/panurus/token/services/nfttx/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +31,7 @@ func (m *mockTMSProvider) GetManagementService(opts ...token.ServiceOption) (*to
 
 func getFakeCtx() *mock.Context {
 	fakeCtx := &mock.Context{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		if _, ok := v.(*token.ManagementServiceProvider); ok {
 			return &mockTMSProvider{}, nil
 		}
@@ -80,7 +80,7 @@ func (d *dummyTMSProviderSuccess) Update(opts driver.ServiceOptions) error {
 func getErrorCtx() *mock.Context {
 	fakeCtx := &mock.Context{}
 	p := token.NewManagementServiceProvider(&dummyTMSProvider{}, &dummyNormalizer{}, nil, nil, nil)
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		if _, ok := v.(*token.ManagementServiceProvider); ok {
 			return p, nil
 		}
@@ -97,7 +97,7 @@ func getSuccessCtx() *mock.Context {
 	mockVP.VaultReturns(&driver_mock.Vault{}, nil)
 
 	p := token.NewManagementServiceProvider(&dummyTMSProviderSuccess{}, &dummyNormalizer{}, mockVP, nil, nil)
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		if _, ok := v.(*token.ManagementServiceProvider); ok {
 			return p, nil
 		}

@@ -46,6 +46,9 @@ jobs:
       - name: Run checks
         run: make checks
 
+      - name: Run linter
+        run: make lint
+
   utest:
     needs: checks
     runs-on: ubuntu-latest
@@ -228,10 +231,10 @@ jobs:
       - name: Build tokengen without cgo
         env:
           CGO_ENABLED: "0"
-        run: go build -o /dev/null ./cmd/tokengen
+        run: cd ./cmd/tokengen; go build -o /dev/null .
 
       - name: Build artifactgen without cgo
         env:
           CGO_ENABLED: "0"
-        run: go build -o /dev/null ./cmd/artifactgen
+        run: cd ./cmd/artifactgen; go build -o /dev/null .
 

@@ -9,8 +9,8 @@ package metrics
 import (
 	"testing"
 
+	"github.com/LFDT-Panurus/panurus/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
@@ -82,6 +82,10 @@ func (m *mockProvider) NewHistogram(opts HistogramOpts) Histogram {
 	}
 
 	return m.histogram
+}
+
+func TestPrometheusAlreadyRegisteredErrorMessage(t *testing.T) {
+	assert.Equal(t, PrometheusAlreadyRegisteredErrorMessage, (&prometheus.AlreadyRegisteredError{}).Error())
 }
 
 func TestTMSProvider(t *testing.T) {

@@ -16,13 +16,13 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/core/common"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/network/common/rws/keys"
+	"github.com/LFDT-Panurus/panurus/token/services/network/common/rws/translator"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/common"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/common/rws/keys"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/common/rws/translator"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 )
@@ -54,7 +54,7 @@ func (a *SetupAction) GetSetupParameters() ([]byte, error) {
 //go:generate counterfeiter -o mock/validator.go -fake-name Validator . Validator
 
 type Validator interface {
-	UnmarshallAndVerifyWithMetadata(ctx context.Context, ledger token.Ledger, anchor token.RequestAnchor, raw []byte) ([]interface{}, map[string][]byte, error)
+	UnmarshallAndVerifyWithMetadata(ctx context.Context, ledger token.Ledger, anchor token.RequestAnchor, raw []byte) ([]any, map[string][]byte, error)
 }
 
 //go:generate counterfeiter -o mock/public_parameters_manager.go -fake-name PublicParametersManager . PublicParametersManager

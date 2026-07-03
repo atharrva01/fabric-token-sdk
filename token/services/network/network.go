@@ -13,14 +13,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	ftsconfig "github.com/LFDT-Panurus/panurus/token/services/config"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/network/driver"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	ftsconfig "github.com/hyperledger-labs/fabric-token-sdk/token/services/config"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/driver"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 // ValidationCode represents the status of a transaction on the ledger.
@@ -87,7 +87,7 @@ func (m TransientMap) Exists(key string) bool {
 }
 
 // SetState marshals a Go object into JSON and stores it in the transient map.
-func (m TransientMap) SetState(key string, state interface{}) error {
+func (m TransientMap) SetState(key string, state any) error {
 	raw, err := json.Marshal(state)
 	if err != nil {
 		return err
@@ -98,7 +98,7 @@ func (m TransientMap) SetState(key string, state interface{}) error {
 }
 
 // GetState unmarshals a JSON-encoded value from the transient map into a Go object.
-func (m TransientMap) GetState(key string, state interface{}) error {
+func (m TransientMap) GetState(key string, state any) error {
 	value, ok := m[key]
 	if !ok {
 		return errors.Errorf("transient map key [%s] does not exists", key)
@@ -224,7 +224,7 @@ func (n *Network) Channel() string {
 }
 
 // Broadcast submits a transaction envelope or generic blob to the network's ordering service.
-func (n *Network) Broadcast(ctx context.Context, blob interface{}) error {
+func (n *Network) Broadcast(ctx context.Context, blob any) error {
 	switch b := blob.(type) {
 	case *Envelope:
 		return n.n.Broadcast(ctx, b.e)

@@ -17,12 +17,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/model"
-	txgen "github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/model/api"
-	c "github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/model/constants"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/service/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/integration/nwo/txgen/service/metrics"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/utils"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/model"
+	txgen "github.com/LFDT-Panurus/panurus/integration/nwo/txgen/model/api"
+	c "github.com/LFDT-Panurus/panurus/integration/nwo/txgen/model/constants"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/service/logging"
+	"github.com/LFDT-Panurus/panurus/integration/nwo/txgen/service/metrics"
+	"github.com/LFDT-Panurus/panurus/token/services/utils"
 )
 
 var operationTypeMap = map[c.ApiRequestType]metrics.OperationType{
@@ -173,7 +173,7 @@ func (u *restUser) doRequest(request *http.Request, requestType c.ApiRequestType
 		With(metrics.OperationLabel, operationType).Add(1)
 
 	start := time.Now()
-	response, err := u.httpClient.Do(request) //nolint:gosec
+	response, err := u.httpClient.Do(request)
 
 	successType := metrics.SuccessValues[err == nil || response != nil && response.StatusCode >= http.StatusBadRequest]
 	u.metrics.RequestsReceived.

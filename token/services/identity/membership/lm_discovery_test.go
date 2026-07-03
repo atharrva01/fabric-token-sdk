@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/identity"
-	idriver "github.com/hyperledger-labs/fabric-token-sdk/token/services/identity/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/identity/membership"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/identity/membership/mock"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage"
+	"github.com/LFDT-Panurus/panurus/token/services/identity"
+	idriver "github.com/LFDT-Panurus/panurus/token/services/identity/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/identity/membership"
+	"github.com/LFDT-Panurus/panurus/token/services/identity/membership/mock"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -200,11 +200,9 @@ func TestLocalMembership_DoubleCheckedLocking(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			_, _ = lm.GetIdentityInfo(ctx, "new", nil)
-		}()
+		})
 	}
 	wg.Wait()
 

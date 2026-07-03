@@ -10,10 +10,10 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
 )
 
 type StreamExternalWalletMsgType = int
@@ -34,7 +34,7 @@ type StreamExternalWalletMsg struct {
 }
 
 // NewStreamExternalWalletMsg creates a new root message for the given type and value
-func NewStreamExternalWalletMsg(Type StreamExternalWalletMsgType, v interface{}) (*StreamExternalWalletMsg, error) {
+func NewStreamExternalWalletMsg(Type StreamExternalWalletMsgType, v any) (*StreamExternalWalletMsg, error) {
 	var raw []byte
 	if v != nil {
 		var err error
@@ -68,7 +68,7 @@ func NewStreamExternalWalletSignerServer(stream view2.Stream) *StreamExternalWal
 }
 
 func (s *StreamExternalWalletSignerServer) Sign(party view.Identity, message []byte) ([]byte, error) {
-	logger.Debug("send sign request for party [%s]", party)
+	logger.Debugf("send sign request for party [%s]", party)
 	msg, err := NewStreamExternalWalletMsg(SigRequest, &StreamExternalWalletSignRequest{
 		Party:   party,
 		Message: message,
@@ -79,7 +79,7 @@ func (s *StreamExternalWalletSignerServer) Sign(party view.Identity, message []b
 	if err := s.stream.Send(msg); err != nil {
 		return nil, err
 	}
-	logger.Debug("receive response, party [%s]", party)
+	logger.Debugf("receive response, party [%s]", party)
 
 	msg = &StreamExternalWalletMsg{}
 	if err := s.stream.Recv(msg); err != nil {
@@ -113,7 +113,7 @@ type SignerProvider interface {
 	GetSigner(party view.Identity) (token.Signer, error)
 }
 
-// StreamExternalWalletSignerClient is the signer client executed where the token-sdk is in execution
+// StreamExternalWalletSignerClient is the signer client executed where Panurus is in execution
 type StreamExternalWalletSignerClient struct {
 	sp      SignerProvider
 	stream  view2.Stream
@@ -161,7 +161,7 @@ func (s *StreamExternalWalletSignerClient) init() {
 				s.input <- req
 			}
 		case Done:
-			logger.Infof("no more signatures required")
+			logger.Debugf("no more signatures required")
 			close(s.input)
 
 			return

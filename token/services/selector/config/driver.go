@@ -9,8 +9,8 @@ package config
 import (
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token/services/selector/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/selector/driver"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 
 //go:generate counterfeiter -o mock/config_service.go -fake-name ConfigService . configService
 type configService interface {
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalKey(key string, rawVal any) error
 }
 
 type Config struct {

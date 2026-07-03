@@ -10,64 +10,86 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/big"
 	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
 
+	tdriver "github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/storage"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	q "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query"
+	common3 "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query/common"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query/cond"
+	"github.com/LFDT-Panurus/panurus/token/services/utils"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
-	tdriver "github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/utils"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 type tokenTables struct {
-	Tokens         string
-	Ownership      string
-	PublicParams   string
-	Certifications string
-	Requests       string
+	Tokens           string
+	Ownership        string
+	PublicParams     string
+	Certifications   string
+	Requests         string
+	TokenSKICleanups string
 }
 
 type TokenStore struct {
-	readDB   *sql.DB
-	writeDB  *sql.DB
-	table    tokenTables
-	ci       common3.CondInterpreter
-	notifier driver.TokenNotifier
+	readDB               *sql.DB
+	writeDB              *sql.DB
+	table                tokenTables
+	ci                   common3.CondInterpreter
+	notifier             driver.TokenNotifier
+	cleanupLeaderFactory func(context.Context, *sql.DB, int64) (driver.CleanupLeadership, bool, error)
 
 	sttMutex              sync.RWMutex
 	supportedTokenFormats []token.Format
 }
 
-func newTokenStore(readDB, writeDB *sql.DB, tables tokenTables, ci common3.CondInterpreter, notifier driver.TokenNotifier) *TokenStore {
+func newTokenStore(readDB, writeDB *sql.DB, tables tokenTables, ci common3.CondInterpreter, notifier driver.TokenNotifier, cleanupLeaderFactory func(context.Context, *sql.DB, int64) (driver.CleanupLeadership, bool, error)) *TokenStore {
 	return &TokenStore{
-		readDB:   readDB,
-		writeDB:  writeDB,
-		table:    tables,
-		ci:       ci,
-		notifier: notifier,
+		readDB:               readDB,
+		writeDB:              writeDB,
+		table:                tables,
+		ci:                   ci,
+		notifier:             notifier,
+		cleanupLeaderFactory: cleanupLeaderFactory,
 	}
 }
 
 func NewTokenStoreWithNotifier(readDB, writeDB *sql.DB, tables TableNames, ci common3.CondInterpreter, notifier driver.TokenNotifier) (*TokenStore, error) {
 	return newTokenStore(readDB, writeDB, tokenTables{
-		Tokens:         tables.Tokens,
-		Ownership:      tables.Ownership,
-		PublicParams:   tables.PublicParams,
-		Certifications: tables.Certifications,
-		Requests:       tables.Requests,
-	}, ci, notifier), nil
+		Tokens:           tables.Tokens,
+		Ownership:        tables.Ownership,
+		PublicParams:     tables.PublicParams,
+		Certifications:   tables.Certifications,
+		Requests:         tables.Requests,
+		TokenSKICleanups: tables.TokenSKICleanups,
+	}, ci, notifier, nil), nil
+}
+
+func NewTokenStoreWithNotifierAndCleanup(
+	readDB, writeDB *sql.DB,
+	tables TableNames,
+	ci common3.CondInterpreter,
+	notifier driver.TokenNotifier,
+	cleanupLeaderFactory func(context.Context, *sql.DB, int64) (driver.CleanupLeadership, bool, error),
+) (*TokenStore, error) {
+	return newTokenStore(readDB, writeDB, tokenTables{
+		Tokens:           tables.Tokens,
+		Ownership:        tables.Ownership,
+		PublicParams:     tables.PublicParams,
+		Certifications:   tables.Certifications,
+		Requests:         tables.Requests,
+		TokenSKICleanups: tables.TokenSKICleanups,
+	}, ci, notifier, cleanupLeaderFactory), nil
 }
 
 func (db *TokenStore) CreateSchema() error {
@@ -131,7 +153,7 @@ func (db *TokenStore) IsMine(ctx context.Context, txID string, index uint64) (bo
 		Limit(1).
 		Format(db.ci)
 
-	id, err := common.QueryUnique[string](db.readDB, query, args...)
+	id, err := common.QueryUniqueContext[string](ctx, db.readDB, query, args...)
 
 	logger.DebugfContext(ctx, "token [%s:%d] is mine [%s]", txID, index, id)
 
@@ -337,6 +359,7 @@ func (db *TokenStore) UnsupportedTokensIteratorBy(ctx context.Context, walletID 
 	logger.DebugfContext(ctx, "after filtering we have [%v]", includeFormats)
 
 	// now, select the tokens with the list of ledger tokens
+
 	return db.queryLedgerTokens(ctx, driver.QueryTokenDetailsParams{
 		WalletID:           walletID,
 		TokenType:          tokenType,
@@ -363,15 +386,16 @@ func (db *TokenStore) queryLedgerTokens(ctx context.Context, details driver.Quer
 	}), nil
 }
 
-// Balance returns the sun of the amounts, with 64 bits of precision, of the tokens with type and EID equal to those passed as arguments.
-func (db *TokenStore) Balance(ctx context.Context, walletID string, typ token.Type) (uint64, error) {
+// Balance returns the sum of the amounts of the tokens with type and EID equal to those passed as arguments.
+// The result is returned as a *big.Int to support arbitrary precision and prevent overflow.
+func (db *TokenStore) Balance(ctx context.Context, walletID string, typ token.Type) (*big.Int, error) {
 	return db.balance(ctx, driver.QueryTokenDetailsParams{
 		WalletID:  walletID,
 		TokenType: typ,
 	})
 }
 
-func (db *TokenStore) balance(ctx context.Context, opts driver.QueryTokenDetailsParams) (uint64, error) {
+func (db *TokenStore) balance(ctx context.Context, opts driver.QueryTokenDetailsParams) (*big.Int, error) {
 	tokenTable, ownershipTable := q.Table(db.table.Tokens), q.Table(db.table.Ownership)
 	query, args := q.Select().FieldsByName("SUM(amount)").
 		From(tokenTable.Join(ownershipTable, cond.And(
@@ -381,12 +405,20 @@ func (db *TokenStore) balance(ctx context.Context, opts driver.QueryTokenDetails
 		Where(HasTokenDetails(opts, tokenTable)).
 		Format(db.ci)
 
-	sum, err := common.QueryUnique[*uint64](db.readDB, query, args...)
-	if err != nil || sum == nil {
-		return 0, err
+	var sum BigInt
+	err := db.readDB.QueryRowContext(ctx, query, args...).Scan(&sum)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return big.NewInt(0), nil
+		}
+
+		return nil, err
+	}
+	if sum.Int == nil {
+		return big.NewInt(0), nil
 	}
 
-	return *sum, nil
+	return sum.Int, nil
 }
 
 // ListUnspentTokensBy returns the list of unspent tokens, filtered by owner and token type
@@ -833,7 +865,13 @@ func (db *TokenStore) QueryTokenDetails(ctx context.Context, params driver.Query
 	}
 
 	it := common.NewIterator(rows, func(td *driver.TokenDetails) error {
-		return rows.Scan(&td.TxID, &td.Index, &td.OwnerIdentity, &td.OwnerType, &td.OwnerEnrollment, &td.Type, &td.Amount, &td.IsSpent, &td.SpentBy, &td.StoredAt)
+		var amount BigInt
+		if err := rows.Scan(&td.TxID, &td.Index, &td.OwnerIdentity, &td.OwnerType, &td.OwnerEnrollment, &td.Type, &amount, &td.IsSpent, &td.SpentBy, &td.StoredAt); err != nil {
+			return err
+		}
+		td.Amount = amount.Int
+
+		return nil
 	})
 
 	return iterators.ReadAllValues(it)
@@ -922,6 +960,7 @@ func (db *TokenStore) StorePublicParams(ctx context.Context, raw []byte) error {
 	if pps, err := db.PublicParamsByHash(ctx, rawHash); err == nil && len(pps) > 0 {
 		logger.DebugfContext(ctx, "public params [%s] already in the database", logging.Base64(rawHash))
 		// no need to update the public parameters
+
 		return nil
 	}
 
@@ -943,7 +982,7 @@ func (db *TokenStore) PublicParams(ctx context.Context) ([]byte, error) {
 		Limit(1).
 		Format(db.ci)
 
-	return common.QueryUnique[[]byte](db.readDB, query, args...)
+	return common.QueryUniqueContext[[]byte](ctx, db.readDB, query, args...)
 }
 
 func (db *TokenStore) PublicParamsByHash(ctx context.Context, rawHash tdriver.PPHash) ([]byte, error) {
@@ -953,7 +992,7 @@ func (db *TokenStore) PublicParamsByHash(ctx context.Context, rawHash tdriver.PP
 		Where(cond.Eq("raw_hash", rawHash)).
 		Format(db.ci)
 
-	return common.QueryUnique[[]byte](db.readDB, query, args...)
+	return common.QueryUniqueContext[[]byte](ctx, db.readDB, query, args...)
 }
 
 func (db *TokenStore) StoreCertifications(ctx context.Context, certifications map[*token.ID][]byte) error {
@@ -991,7 +1030,7 @@ func (db *TokenStore) ExistsCertification(ctx context.Context, tokenID *token.ID
 		Where(HasTokens("tx_id", "idx", tokenID)).
 		Format(db.ci)
 
-	certification, err := common.QueryUnique[[]byte](db.readDB, query, args...)
+	certification, err := common.QueryUniqueContext[[]byte](ctx, db.readDB, query, args...)
 	if err != nil {
 		logger.Warnf("tried to check certification existence for token id %s, err %s", tokenID, err)
 
@@ -1051,6 +1090,109 @@ func (db *TokenStore) GetCertifications(ctx context.Context, ids []*token.ID) ([
 	return certifications, nil
 }
 
+// GetDeletedTokensPendingSKICleanup returns deleted tokens older than the specified duration
+// that haven't had their SKI keys cleaned up yet (no record in token_ski_cleanups table).
+func (db *TokenStore) GetDeletedTokensPendingSKICleanup(ctx context.Context, olderThan time.Duration, limit int) ([]driver.DeletedToken, error) {
+	cutoffTime := time.Now().UTC().Add(-olderThan)
+
+	tokenTable := q.Table(db.table.Tokens)
+	cleanupTable := q.Table(db.table.TokenSKICleanups)
+
+	if limit == 0 {
+		limit = common3.ZeroLimit
+	}
+
+	// Use LEFT JOIN to find tokens that don't have a cleanup record
+	query, args := q.Select().
+		Fields(
+			tokenTable.Field("tx_id"),
+			tokenTable.Field("idx"),
+			tokenTable.Field("owner_identity"),
+			tokenTable.Field("owner_type"),
+			tokenTable.Field("spent_at"),
+		).
+		From(tokenTable.JoinAs(common3.Left, cleanupTable, cond.And(
+			cond.Cmp(tokenTable.Field("tx_id"), "=", cleanupTable.Field("tx_id")),
+			cond.Cmp(tokenTable.Field("idx"), "=", cleanupTable.Field("idx")),
+		))).
+		Where(cond.And(
+			cond.CmpVal(tokenTable.Field("is_deleted"), "=", true),
+			cond.CmpVal(tokenTable.Field("spent_at"), "<", cutoffTime),
+			cond.IsNil(cleanupTable.Field("tx_id")),
+		)).
+		OrderBy(q.Asc(tokenTable.Field("spent_at"))).
+		Limit(limit).
+		Format(db.ci)
+
+	logging.Debug(logger, query, args)
+	rows, err := db.readDB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to query deleted tokens pending SKI cleanup")
+	}
+	defer Close(rows)
+
+	var tokens []driver.DeletedToken
+	for rows.Next() {
+		var t driver.DeletedToken
+		var spentAt sql.NullTime
+		if err := rows.Scan(&t.TxID, &t.Index, &t.OwnerIdentity, &t.OwnerType, &spentAt); err != nil {
+			return nil, errors.Wrapf(err, "failed to scan deleted token")
+		}
+		if spentAt.Valid {
+			t.DeletedAt = spentAt.Time
+		}
+		tokens = append(tokens, t)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, errors.Wrapf(err, "error iterating deleted tokens")
+	}
+
+	logger.DebugfContext(ctx, "found %d deleted tokens older than %v pending SKI cleanup", len(tokens), olderThan)
+
+	return tokens, nil
+}
+
+// MarkTokenCleaned marks a token as having its cryptographic keys cleaned up.
+// This prevents the cleanup service from processing the same token multiple times.
+// The cleanedBy parameter identifies which instance performed the cleanup.
+func (db *TokenStore) MarkTokenCleaned(ctx context.Context, txID string, index uint64, cleanedBy string) error {
+	now := time.Now().UTC()
+
+	// Insert into token_ski_cleanups table
+	query, args := q.InsertInto(db.table.TokenSKICleanups).
+		Fields("tx_id", "idx", "cleaned_at", "cleaned_by").
+		Rows([]common3.Tuple{{txID, index, now, cleanedBy}}).
+		Format()
+
+	logging.Debug(logger, query, args)
+	_, err := db.writeDB.ExecContext(ctx, query, args...)
+	if err != nil {
+		return errors.Wrapf(err, "failed to insert cleanup record for token [%s:%d]", txID, index)
+	}
+
+	logger.DebugfContext(ctx, "marked token [%s:%d] as cleaned by [%s]", txID, index, cleanedBy)
+
+	return nil
+}
+
+// AcquireCleanupLeadership attempts to acquire leadership for keystore cleanup operations.
+// When no leader factory is configured, leadership is granted locally (for non-distributed deployments).
+// In distributed deployments (PostgreSQL), this uses advisory locks to ensure only one instance performs cleanup.
+// AcquireCleanupLeadership returns a leadership handle for cleanup sweeping.
+// When no leader factory is configured, leadership is granted locally.
+func (db *TokenStore) AcquireCleanupLeadership(ctx context.Context, lockID int64) (driver.CleanupLeadership, bool, error) {
+	if db.cleanupLeaderFactory == nil {
+		return noopCleanupLeadership{}, true, nil
+	}
+
+	return db.cleanupLeaderFactory(ctx, db.writeDB, lockID)
+}
+
+// noopCleanupLeadership is a no-op implementation for non-distributed deployments
+type noopCleanupLeadership struct{}
+
+func (noopCleanupLeadership) Close() error { return nil }
+
 func (db *TokenStore) GetSchema() string {
 	return fmt.Sprintf(`
 		-- Requests
@@ -1073,16 +1215,16 @@ func (db *TokenStore) GetSchema() string {
 		CREATE TABLE IF NOT EXISTS %s (
 			tx_id TEXT NOT NULL,
 			idx INT NOT NULL,
-			amount BIGINT NOT NULL,
+			amount NUMERIC(78, 0) NOT NULL,
 			token_type TEXT NOT NULL,
 			quantity TEXT NOT NULL,
 			issuer_raw BYTEA,
 			owner_raw BYTEA NOT NULL,
 			owner_type TEXT NOT NULL,
 			owner_identity BYTEA NOT NULL,
-			owner_wallet_id TEXT, 
+			owner_wallet_id TEXT,
 			ledger BYTEA NOT NULL,
-            ledger_type TEXT DEFAULT '',
+		          ledger_type TEXT DEFAULT '',
 			ledger_metadata BYTEA NOT NULL,
 			stored_at TIMESTAMP NOT NULL,
 			is_deleted BOOL NOT NULL DEFAULT false,
@@ -1125,6 +1267,17 @@ func (db *TokenStore) GetSchema() string {
 			PRIMARY KEY (tx_id, idx),
 			FOREIGN KEY (tx_id, idx) REFERENCES %s
 		);
+
+		-- Token SKI Cleanups
+		CREATE TABLE IF NOT EXISTS %s (
+			tx_id TEXT NOT NULL,
+			idx INT NOT NULL,
+			cleaned_at TIMESTAMP NOT NULL,
+			cleaned_by TEXT NOT NULL,
+			PRIMARY KEY (tx_id, idx),
+			FOREIGN KEY (tx_id, idx) REFERENCES %s
+		);
+		CREATE INDEX IF NOT EXISTS idx_cleaned_at_%s ON %s ( cleaned_at );
 		`,
 		db.table.Requests, db.table.Requests, db.table.Requests, db.table.Requests, db.table.Requests,
 		db.table.Tokens,
@@ -1135,6 +1288,7 @@ func (db *TokenStore) GetSchema() string {
 		db.table.Ownership, db.table.Tokens,
 		db.table.PublicParams, db.table.PublicParams, db.table.PublicParams,
 		db.table.Certifications, db.table.Tokens,
+		db.table.TokenSKICleanups, db.table.Tokens, db.table.TokenSKICleanups, db.table.TokenSKICleanups,
 	)
 }
 
@@ -1299,6 +1453,7 @@ func (t *TokenTransaction) StoreToken(ctx context.Context, tr driver.TokenRecord
 	query, args := q.InsertInto(t.table.Tokens).
 		Fields("tx_id", "idx", "issuer_raw", "owner_raw", "owner_type", "owner_identity", "owner_wallet_id", "ledger", "ledger_type", "ledger_metadata", "token_type", "quantity", "amount", "stored_at", "owner", "auditor", "issuer").
 		Row(tr.TxID, tr.Index, tr.IssuerRaw, tr.OwnerRaw, tr.OwnerType, tr.OwnerIdentity, tr.OwnerWalletID, tr.Ledger, tr.LedgerFormat, tr.LedgerMetadata, tr.Type, tr.Quantity, tr.Amount, time.Now().UTC(), tr.Owner, tr.Auditor, tr.Issuer).
+		OnConflictDoNothing().
 		Format()
 	logging.Debug(logger, query, args)
 	if _, err := t.tx.ExecContext(ctx, query, args...); err != nil {
@@ -1321,6 +1476,7 @@ func (t *TokenTransaction) StoreToken(ctx context.Context, tr driver.TokenRecord
 	query, args = q.InsertInto(t.table.Ownership).
 		Fields("tx_id", "idx", "wallet_id").
 		Rows(rows).
+		OnConflictDoNothing().
 		Format()
 	logging.Debug(logger, query, args)
 
@@ -1370,7 +1526,7 @@ func (t *TokenTransaction) SetSpendableBySupportedTokenFormats(ctx context.Conte
 		return errors.Wrapf(err, "error setting spendable flag to true for token types [%v]", formats)
 	} else {
 		rows, _ := res.RowsAffected()
-		logger.InfofContext(ctx, "rows affected [%d]", rows)
+		logger.DebugfContext(ctx, "rows affected [%d]", rows)
 	}
 
 	return nil

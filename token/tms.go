@@ -14,9 +14,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
 )
 
 var logger = logging.MustGetLogger()
@@ -29,7 +29,7 @@ type TMSID = driver.TMSID
 // ServiceProvider is used to return instances of a given type
 type ServiceProvider interface {
 	// GetService returns an instance of the given type
-	GetService(v interface{}) (interface{}, error)
+	GetService(v any) (any, error)
 }
 
 // ManagementService (TMS) is the main entry point for all token operations.

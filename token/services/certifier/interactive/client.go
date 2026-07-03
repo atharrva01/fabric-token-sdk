@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
+	token2 "github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/tokens"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/tokens"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 type Op uint8
@@ -43,7 +43,7 @@ type CertificationStorage interface {
 
 //go:generate counterfeiter -o mock/view_manager.go -fake-name ViewManagerMock . ViewManager
 type ViewManager interface {
-	InitiateView(view view.View) (interface{}, error)
+	InitiateView(view view.View) (any, error)
 }
 
 // CertificationClient scans the vault for tokens not yet certified and requests certification.
@@ -147,7 +147,7 @@ func (cc *CertificationClient) RequestCertification(ctx context.Context, ids ...
 		return nil
 	}
 
-	var resultBoxed interface{}
+	var resultBoxed any
 	var err error
 	labels := []string{"channel", cc.channel, "namespace", cc.namespace}
 
@@ -223,23 +223,16 @@ func (cc *CertificationClient) Scan() error {
 // It must be called before the client processes any tokens.
 func (cc *CertificationClient) Start() {
 	for range cc.workers {
-		cc.wg.Add(1)
-
-		go func() {
-			defer cc.wg.Done()
-
+		cc.wg.Go(func() {
 			for batch := range cc.batches {
 				cc.processBatch(batch)
 			}
-		}()
+		})
 	}
 
-	cc.wg.Add(1)
-
-	go func() {
-		defer cc.wg.Done()
+	cc.wg.Go(func() {
 		cc.accumulatorCutter()
-	}()
+	})
 }
 
 // Stop signals the client to shut down and waits for all goroutines to finish.

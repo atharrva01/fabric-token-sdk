@@ -9,11 +9,11 @@ package tokendb
 import (
 	"reflect"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/multiplexed"
 )
 
 type (
@@ -21,7 +21,7 @@ type (
 	StoreServiceManager db.StoreServiceManager[*StoreService]
 )
 
-var managerType = reflect.TypeOf((*StoreServiceManager)(nil))
+var managerType = reflect.TypeFor[*StoreServiceManager]()
 
 func NewStoreServiceManager(cp db.ConfigService, drivers multiplexed.Driver) StoreServiceManager {
 	return db.NewStoreServiceManager(cp, "tokendb.persistence", drivers.NewToken, newStoreService)

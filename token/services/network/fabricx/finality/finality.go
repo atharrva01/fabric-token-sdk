@@ -12,17 +12,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/network/common/rws/keys"
+	"github.com/LFDT-Panurus/panurus/token/services/network/common/rws/translator"
+	ndriver "github.com/LFDT-Panurus/panurus/token/services/network/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/network/fabric/finality"
+	"github.com/LFDT-Panurus/panurus/token/services/network/fabricx/finality/queue"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	finalityx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/common/rws/keys"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/common/rws/translator"
-	ndriver "github.com/hyperledger-labs/fabric-token-sdk/token/services/network/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/fabric/finality"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/fabricx/finality/queue"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
@@ -40,7 +40,7 @@ const (
 //go:generate counterfeiter -o mock/cs.go -fake-name ConfigService . ConfigService
 type ConfigService interface {
 	// UnmarshalKey unmarshals the configuration value for the given key into rawVal
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalKey(key string, rawVal any) error
 }
 
 // QueryService models the FabricX query service needed by the NSListenerManager

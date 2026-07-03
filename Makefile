@@ -2,10 +2,11 @@
 FABRIC_VERSION ?= 3.1.4
 FABRIC_CA_VERSION ?= 1.5.7
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
-FABRIC_X_TOOLS_VERSION ?= v0.0.12
-FABRIC_X_COMMITTER_VERSION ?= 0.1.9
 
-# need to install fabric binaries outside of fts tree for now (due to chaincode packaging issues)
+FABRIC_X_TOOLS_VERSION ?= v0.0.17
+FABRIC_X_COMMITTER_VERSION ?= 1.0.0
+
+# need to install fabric binaries outside of panuru's  tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE=$(PWD)/../fabric
 FAB_BINS ?= $(FABRIC_BINARY_BASE)/bin
 
@@ -17,6 +18,11 @@ TOP = .
 
 # include the checks target
 include $(TOP)/checks.mk
+
+# Define all Go module directories
+GO_MODULES := . integration token/services/storage/db/kvs/hashicorp cmd/artifactgen cmd/tokengen cmd/token_validation_service cmd/profiler
+TIDY_GO_MODULES := $(GO_MODULES) tools
+
 # include fabricx target
 include $(TOP)/fabricx.mk
 # include the interop target
@@ -116,9 +122,11 @@ integration-tests-dvp-dlog:
 .PHONY: tidy
 # tidy up go modules
 tidy:
-	@go mod tidy
-	cd tools; go mod tidy
-	cd token/services/storage/db/kvs/hashicorp; go mod tidy
+	@echo "Tidying Go modules..."
+	@for dir in $(TIDY_GO_MODULES); do \
+		echo "  Tidying module: $$dir"; \
+		(cd $$dir && go mod tidy); \
+	done
 
 .PHONY: clean
 # clean up docker artifacts and generated files
@@ -158,12 +166,12 @@ clean-fabric-peer-images:
 .PHONY: tokengen
 # install tokengen tool (must build without cgo; see #1445)
 tokengen:
-	@CGO_ENABLED=0 go install ./cmd/tokengen
+	@cd ./cmd/tokengen/; CGO_ENABLED=0 go install github.com/LFDT-Panurus/panurus/cmd/tokengen
 
 .PHONY: artifactgen
 # install artifactgen tool (must build without cgo; see #1445)
 artifactgen:
-	@CGO_ENABLED=0 go install ./cmd/artifactgen
+	@cd ./cmd/artifactgen/; CGO_ENABLED=0 go install github.com/LFDT-Panurus/panurus/cmd/artifactgen
 
 .PHONY: traceinspector
 # install traceinspector tool
@@ -213,24 +221,33 @@ clean-all-containers:
 # run various linters
 lint:
 	@echo "Running Go Linters..."
-	golangci-lint run --color=always --timeout=4m
+	@for dir in $(GO_MODULES); do \
+		echo "  Linting module: $$dir"; \
+		(cd $$dir && golangci-lint run --color=always --timeout=4m ./...) || exit 1; \
+	done
 
 .PHONY: lint-auto-fix
 # run linters with auto-fix
 lint-auto-fix:
 	@echo "Running Go Linters with auto-fix..."
-	golangci-lint run --color=always --timeout=4m --fix
+	@for dir in $(GO_MODULES); do \
+		echo "  Linting module: $$dir"; \
+		(cd $$dir && golangci-lint run --color=always --timeout=4m --fix ./...) || exit 1; \
+	done
 
 .PHONY: install-linter-tool
 # install golangci-lint
 install-linter-tool:
 	@echo "Installing golangci Linter"
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(HOME)/go/bin v2.11.4
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(HOME)/go/bin v2.12.2
 
 .PHONY: fmt
 fmt: ## Run gofmt on the entire project
 	@echo "Running gofmt..."
-	@gofmt -l -s -w .
+	@for dir in $(GO_MODULES); do \
+		echo "  Formatting module: $$dir"; \
+		(cd $$dir && find . -path './.git' -prune -o -name '*.go' -print | xargs gofmt -l -s -w); \
+	done
 
 .PHONY: update-all-deps-latest
 update-all-deps-latest: ## Update all dependencies in all Go modules to their latest version
@@ -239,3 +256,29 @@ update-all-deps-latest: ## Update all dependencies in all Go modules to their la
 		echo "=> Updating dependencies in $$dir"; \
 		(cd $$dir && go get ./...@latest && go mod tidy); \
 	done
+
+.PHONY: docs-install
+# Install documentation dependencies
+docs-install:
+	pip install -r requirements.txt
+
+.PHONY: docs-serve
+# Serve documentation locally for development
+docs-serve:
+	mkdocs serve
+
+.PHONY: docs-build
+# Build the static documentation site for production
+docs-build:
+	mkdocs build --strict
+
+.PHONY: protos-format
+protos-format: ## Run buf format to fix protobuf files
+	@echo "Fixing protobuf formatting..."
+	@buf format -w
+
+.PHONY: protos
+# generate protobuf files
+protos:
+	@echo "Generating protobuf files..."
+	@buf generate

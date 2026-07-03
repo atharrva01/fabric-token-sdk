@@ -10,15 +10,15 @@ import (
 	"crypto/sha256"
 	"reflect"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/config"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/network/common/rws/keys"
+	"github.com/LFDT-Panurus/panurus/token/services/network/common/rws/translator"
+	"github.com/LFDT-Panurus/panurus/token/services/network/fabric"
+	"github.com/LFDT-Panurus/panurus/token/services/network/fabricx/pp"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/config"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/common/rws/keys"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/common/rws/translator"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/fabric"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/fabricx/pp"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 )
 
@@ -157,7 +157,7 @@ func (s *deployerService) createPublicParametersTx(ppRaw []byte, namespaceID cdr
 
 // GetTMSDeployerService returns the DeployerService instance from the service provider.
 func GetTMSDeployerService(sp services.Provider) (DeployerService, error) {
-	s, err := sp.GetService(reflect.TypeOf((*DeployerService)(nil)))
+	s, err := sp.GetService(reflect.TypeFor[*DeployerService]())
 	if err != nil {
 		return nil, err
 	}

@@ -10,15 +10,15 @@ import (
 	"context"
 
 	math "github.com/IBM/mathlib"
+	"github.com/LFDT-Panurus/panurus/token/core/common"
+	"github.com/LFDT-Panurus/panurus/token/core/common/meta"
+	"github.com/LFDT-Panurus/panurus/token/core/zkatdlog/nogh/v1/token"
+	"github.com/LFDT-Panurus/panurus/token/core/zkatdlog/nogh/v1/transfer"
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/common"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/common/meta"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/zkatdlog/nogh/v1/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/zkatdlog/nogh/v1/transfer"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -264,7 +264,9 @@ func (s *TransferService) Transfer(ctx context.Context, anchor driver.TokenReque
 			return nil, nil, errors.Wrap(err, "failed to select issuer for redeem")
 		}
 		transfer.Issuer = issuer
-		transferMetadata.Issuer = issuer
+		transferMetadata.Issuer = driver.AuditableIdentity{
+			Identity: issuer,
+		}
 	}
 
 	return transfer, transferMetadata, nil
@@ -312,12 +314,17 @@ func (s *TransferService) VerifyTransfer(ctx context.Context, transferAction dri
 		s.Logger.DebugfContext(ctx, "transfer output [%s,%s,%s]", tok.Type, tok.Quantity, driver.Identity(tok.Owner))
 	}
 
-	return transfer.NewVerifier(
+	verifier, err := transfer.NewVerifier(
 		getTokenData(action.InputTokens()),
 		com,
 		pp,
 		action.ProofType,
-	).Verify(action.Proof)
+	)
+	if err != nil {
+		return err
+	}
+
+	return verifier.Verify(action.Proof)
 }
 
 // DeserializeTransferAction un-marshals a TransferAction from the passed array of bytes.

@@ -8,8 +8,8 @@ package sqlite
 
 import (
 	scommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
-	sqlcommon "github.com/hyperledger-labs/fabric-token-sdk/token/services/storage/db/sql/common"
+
+	sqlcommon "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/common"
 )
 
 type TokenStore = sqlcommon.TokenStore
@@ -22,7 +22,7 @@ func NewTokenStore(
 		dbs.ReadDB,
 		dbs.WriteDB,
 		tableNames,
-		sqlite.NewConditionInterpreter(),
+		NewConditionInterpreter(),
 		nil,
 	)
 }

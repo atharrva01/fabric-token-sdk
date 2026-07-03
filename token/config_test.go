@@ -9,8 +9,8 @@ package token
 import (
 	"testing"
 
+	"github.com/LFDT-Panurus/panurus/token/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +74,7 @@ func TestConfiguration_UnmarshalKey_Error(t *testing.T) {
 	mockCM := &mock.Configuration{}
 	config := NewConfiguration(mockCM)
 
-	var target interface{}
+	var target any
 	expectedErr := errors.New("unmarshal error")
 	mockCM.UnmarshalKeyReturns(expectedErr)
 

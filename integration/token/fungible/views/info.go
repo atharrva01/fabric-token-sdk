@@ -9,17 +9,17 @@ package views
 import (
 	"encoding/json"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/core"
+	fabtoken "github.com/LFDT-Panurus/panurus/token/core/fabtoken/v1/driver"
+	dlog "github.com/LFDT-Panurus/panurus/token/core/zkatdlog/nogh/v1/driver"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/network"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx"
+	"github.com/LFDT-Panurus/panurus/token/services/utils"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core"
-	fabtoken "github.com/hyperledger-labs/fabric-token-sdk/token/core/fabtoken/v1/driver"
-	dlog "github.com/hyperledger-labs/fabric-token-sdk/token/core/zkatdlog/nogh/v1/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/utils"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 const (
@@ -38,7 +38,7 @@ type GetEnrollmentIDView struct {
 	*GetEnrollmentID
 }
 
-func (r *GetEnrollmentIDView) Call(context view.Context) (interface{}, error) {
+func (r *GetEnrollmentIDView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, ServiceOpts(r.TMSID)...)
 	assert.NoError(err, "failed getting management service")
 	assert.NotNil(tms, "tms not found [%s]", r.TMSID)
@@ -66,7 +66,7 @@ type CheckPublicParamsMatchView struct {
 	*CheckPublicParamsMatch
 }
 
-func (p *CheckPublicParamsMatchView) Call(context view.Context) (interface{}, error) {
+func (p *CheckPublicParamsMatchView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, ServiceOpts(p.TMSID)...)
 	assert.NoError(err, "failed to lookup TMS [%s]", p.TMSID)
 	assert.NotNil(tms, "failed to get TMS")
@@ -123,7 +123,7 @@ type WhoDeletedTokenView struct {
 	*WhoDeletedToken
 }
 
-func (w *WhoDeletedTokenView) Call(context view.Context) (interface{}, error) {
+func (w *WhoDeletedTokenView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(w.TMSID))
 	assert.NoError(err, "failed to lookup TMS [%s]", w.TMSID)
 	assert.NotNil(tms, "failed to get TMS [%s]", w.TMSID)
@@ -154,7 +154,7 @@ type GetPublicParamsView struct {
 	*GetPublicParams
 }
 
-func (p *GetPublicParamsView) Call(context view.Context) (interface{}, error) {
+func (p *GetPublicParamsView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(p.TMSID))
 	assert.NoError(err, "failed to lookup TMS [%s]", p.TMSID)
 	assert.NotNil(tms, "failed to get TMS")
@@ -187,7 +187,7 @@ type UpdatePublicParamsView struct {
 	*UpdatePublicParams
 }
 
-func (p *UpdatePublicParamsView) Call(context view.Context) (interface{}, error) {
+func (p *UpdatePublicParamsView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, ServiceOpts(&p.TMSID)...)
 	assert.NoError(err, "failed to lookup TMS [%s]", p.TMSID)
 	assert.NotNil(tms, "failed to get TMS")
@@ -219,7 +219,7 @@ type DoesWalletExistView struct {
 	*DoesWalletExist
 }
 
-func (p *DoesWalletExistView) Call(context view.Context) (interface{}, error) {
+func (p *DoesWalletExistView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(p.TMSID))
 	assert.NoError(err, "failed to lookup TMS [%s]", p.TMSID)
 	assert.NotNil(tms, "failed to get TMS")
@@ -267,7 +267,7 @@ type TxStatusView struct {
 	*TxStatus
 }
 
-func (p *TxStatusView) Call(context view.Context) (interface{}, error) {
+func (p *TxStatusView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(p.TMSID))
 	assert.NoError(err, "failed to lookup TMS [%s]", p.TMSID)
 	assert.NotNil(tms, "failed to get TMS [%s]", p.TMSID)

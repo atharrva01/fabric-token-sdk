@@ -5,8 +5,8 @@ import (
 	"context"
 	"sync"
 
-	v1 "github.com/hyperledger-labs/fabric-token-sdk/token/core/zkatdlog/nogh/v1"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
+	v1 "github.com/LFDT-Panurus/panurus/token/core/zkatdlog/nogh/v1"
+	"github.com/LFDT-Panurus/panurus/token/token"
 )
 
 type TokenLoader struct {
@@ -101,8 +101,6 @@ func (fake *TokenLoader) LoadTokensReturnsOnCall(i int, result1 []v1.LoadedToken
 func (fake *TokenLoader) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.loadTokensMutex.RLock()
-	defer fake.loadTokensMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

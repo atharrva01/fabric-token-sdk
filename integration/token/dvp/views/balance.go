@@ -9,12 +9,11 @@ package views
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	token2 "github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 type BalanceQuery struct {
@@ -32,7 +31,7 @@ type BalanceView struct {
 	*BalanceQuery
 }
 
-func (b *BalanceView) Call(context view.Context) (interface{}, error) {
+func (b *BalanceView) Call(context view.Context) (any, error) {
 	tms, err := token.GetManagementService(context, token.WithTMSID(b.TMSID))
 	assert.NoError(err)
 	wallet, err := tms.WalletManager().OwnerWallet(context.Context(), b.Wallet)
@@ -45,7 +44,7 @@ func (b *BalanceView) Call(context view.Context) (interface{}, error) {
 		return nil, err
 	}
 
-	return Balance{Quantity: strconv.FormatUint(balance, 10), Type: b.Type}, nil
+	return Balance{Quantity: balance.String(), Type: b.Type}, nil
 }
 
 type BalanceViewFactory struct{}

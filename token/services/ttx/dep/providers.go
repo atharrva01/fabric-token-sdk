@@ -10,19 +10,19 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/services/network"
+	"github.com/LFDT-Panurus/panurus/token/services/ttx/dep/db"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx/dep/db"
 )
 
 var (
-	networkProviderType         = reflect.TypeOf((*NetworkProvider)(nil))
-	tmsProviderType             = reflect.TypeOf((*TokenManagementServiceProvider)(nil))
-	networkIdentityProviderType = reflect.TypeOf((*NetworkIdentityProvider)(nil))
-	transactionDBProviderType   = reflect.TypeOf((*TransactionDBProvider)(nil))
-	auditDBProviderType         = reflect.TypeOf((*AuditDBProvider)(nil))
+	networkProviderType         = reflect.TypeFor[*NetworkProvider]()
+	tmsProviderType             = reflect.TypeFor[*TokenManagementServiceProvider]()
+	networkIdentityProviderType = reflect.TypeFor[*NetworkIdentityProvider]()
+	transactionDBProviderType   = reflect.TypeFor[*TransactionDBProvider]()
+	auditDBProviderType         = reflect.TypeFor[*AuditDBProvider]()
 )
 
 // Network defines the subset of function of the network service needed by the ttx service.

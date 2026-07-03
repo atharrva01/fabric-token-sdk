@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package tmsdeploy
 
 import (
+	"github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/core/common/encoding/json"
+	"github.com/LFDT-Panurus/panurus/token/services/network/fabricx/tms"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/core/common/encoding/json"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/network/fabricx/tms"
 )
 
 type Deploy struct {
@@ -25,7 +25,7 @@ type View struct {
 	*Deploy
 }
 
-func (f *View) Call(ctx view.Context) (interface{}, error) {
+func (f *View) Call(ctx view.Context) (any, error) {
 	deployerService, err := tms.GetTMSDeployerService(ctx)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "deployer service not found")

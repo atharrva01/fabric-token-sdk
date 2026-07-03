@@ -11,11 +11,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
 
+	"github.com/LFDT-Panurus/panurus/token/driver"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/driver"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 // TxStatus is the status of a transaction
@@ -30,6 +30,8 @@ const (
 	Confirmed = driver.Confirmed
 	// Deleted is the status of a transaction that has been deleted due to a failure to commit
 	Deleted = driver.Deleted
+	// Orphan is the status of a transaction that never reached the ledger
+	Orphan = driver.Orphan
 )
 
 // QueryEngine models a token query engine

@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 
-	certifier "github.com/hyperledger-labs/fabric-token-sdk/token/services/certifier/views"
+	certifier "github.com/LFDT-Panurus/panurus/token/services/certifier/views"
 )
 
 type RegisterCertifier struct {
@@ -25,7 +25,7 @@ type RegisterCertifierView struct {
 	*RegisterCertifier
 }
 
-func (r *RegisterCertifierView) Call(context view.Context) (interface{}, error) {
+func (r *RegisterCertifierView) Call(context view.Context) (any, error) {
 	return context.RunView(certifier.NewRegisterView(r.Network, r.Channel, r.Namespace, r.Wallet))
 }
 

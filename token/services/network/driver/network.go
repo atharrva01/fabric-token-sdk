@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"time"
 
+	token2 "github.com/LFDT-Panurus/panurus/token"
+	"github.com/LFDT-Panurus/panurus/token/token"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	token2 "github.com/hyperledger-labs/fabric-token-sdk/token"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/token"
 )
 
 // FinalityListener defines the interface for receiving transaction status change notifications from the network.
@@ -56,7 +56,7 @@ type Network interface {
 	Connect(ns string) ([]token2.ServiceOption, error)
 
 	// Broadcast submits a transaction or data blob to the network's ordering service.
-	Broadcast(ctx context.Context, blob interface{}) error
+	Broadcast(ctx context.Context, blob any) error
 
 	// NewEnvelope creates a new, empty transaction envelope specific to the backend.
 	NewEnvelope() Envelope

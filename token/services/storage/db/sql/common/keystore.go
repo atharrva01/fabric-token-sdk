@@ -8,18 +8,19 @@ package common
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+	q "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query"
+	qcommon "github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query/common"
+	"github.com/LFDT-Panurus/panurus/token/services/storage/db/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	dcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	qcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
-	"github.com/hyperledger-labs/fabric-token-sdk/token/services/logging"
 )
 
 type keystoreTables struct {
@@ -64,7 +65,7 @@ func (db *KeystoreStore) Close() error {
 	return dcommon.Close(db.readDB, db.writeDB)
 }
 
-func (db *KeystoreStore) Put(key string, state interface{}) error {
+func (db *KeystoreStore) Put(key string, state any) error {
 	if state == nil {
 		return errors.New("cannot store nil state")
 	}
@@ -90,6 +91,7 @@ func (db *KeystoreStore) Put(key string, state interface{}) error {
 		}
 		if bytes.Equal(rawFromDB, raw) {
 			// It might be that this key was already inserted before. The node is restarting, for example.
+
 			return nil
 		}
 
@@ -99,7 +101,7 @@ func (db *KeystoreStore) Put(key string, state interface{}) error {
 	return err
 }
 
-func (db *KeystoreStore) Get(key string, state interface{}) error {
+func (db *KeystoreStore) Get(key string, state any) error {
 	raw, err := db.GetRaw(key)
 	if err != nil {
 		return err
@@ -122,12 +124,32 @@ func (db *KeystoreStore) GetRaw(key string) ([]byte, error) {
 		From(q.Table(db.table.KeyStore)).
 		Where(cond.Eq("key", key)).
 		Format(db.ci)
-	raw, err := common.QueryUnique[[]byte](db.readDB, query, args...)
+	raw, err := common.QueryUniqueContext[[]byte](context.Background(), db.readDB, query, args...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving key [%s]", key)
 	}
 
 	return raw, nil
+}
+
+func (db *KeystoreStore) Delete(key string) error {
+	if len(key) == 0 {
+		return errors.New("cannot delete empty key")
+	}
+
+	query, args := q.DeleteFrom(db.table.KeyStore).
+		Where(cond.Eq("key", key)).
+		Format(db.ci)
+	logging.Debug(logger, query, args)
+
+	_, err := db.writeDB.Exec(query, args...)
+	if err != nil {
+		return errors.Wrapf(err, "failed deleting key [%s]", key)
+	}
+
+	logger.Debugf("deleted key [%s] successfully", key)
+
+	return nil
 }
 
 func (db *KeystoreStore) GetSchema() string {
