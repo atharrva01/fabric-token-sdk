@@ -316,6 +316,7 @@ func TestAll(network *integration.Infrastructure, auditorId string, onRestart On
 	CheckAcceptedTransactions(network, alice, "", AliceAcceptedTransactions[:1], nil, nil, []ttxdb.TxStatus{ttxdb.Confirmed}, ttxdb.Issue)
 	CheckAcceptedTransactions(network, alice, "", AliceAcceptedTransactions[:1], nil, nil, nil)
 	CheckAcceptedTransactions(network, alice, "", AliceAcceptedTransactions[:1], &t0, &t1, nil)
+	CheckIssuerBalance(network, issuer, "", "USD", 110, 0, 110)
 
 	t2 := time.Now()
 	Withdraw(network, nil, false, alice, "", "USD", 10, auditor, issuer)
@@ -328,6 +329,7 @@ func TestAll(network *integration.Infrastructure, auditorId string, onRestart On
 	CheckAcceptedTransactions(network, alice, "", AliceAcceptedTransactions[:2], nil, nil, nil)
 	CheckAcceptedTransactions(network, alice, "", AliceAcceptedTransactions[:2], &t0, &t3, nil)
 	CheckAcceptedTransactions(network, alice, "", AliceAcceptedTransactions[1:2], &t2, &t3, nil)
+	CheckIssuerBalance(network, issuer, "", "USD", 120, 0, 120)
 
 	h := ListIssuerHistory(network, "", "USD", issuer)
 	gomega.Expect(h.Count()).To(gomega.BeNumerically(">", 0))
@@ -438,6 +440,7 @@ func TestAll(network *integration.Infrastructure, auditorId string, onRestart On
 	CheckAcceptedTransactions(network, bob, "", BobAcceptedTransactions[5:6], nil, nil, nil, ttxdb.Redeem)
 	CheckAcceptedTransactions(network, bob, "", BobAcceptedTransactions[5:6], nil, nil, []ttxdb.TxStatus{ttxdb.Confirmed}, ttxdb.Redeem)
 	CheckAuditedTransactions(network, auditor, AuditedTransactions[7:9], &t9, &t10)
+	CheckIssuerBalance(network, issuer, "", "USD", 120, 11, 109)
 
 	t11 := time.Now()
 	IssueCash(network, "", "USD", 10, bob, auditor, true, issuer)
@@ -445,6 +448,12 @@ func TestAll(network *integration.Infrastructure, auditorId string, onRestart On
 	CheckAuditedTransactions(network, auditor, AuditedTransactions[9:10], &t11, &t12)
 	CheckAuditedTransactions(network, auditor, AuditedTransactions[:10], &t0, &t12)
 	CheckSpending(network, bob, "", "USD", auditor, 11)
+
+	// Check the issuer's issued/redeemed/net balances for the default "" issuer wallet.
+	// So far the "" wallet has issued USD: 110 (to alice) + 10 (withdraw) + 10 (to bob) = 130,
+	// and 11 USD have been redeemed against this issuer (bob's redeem above),
+	// hence the net outstanding issued supply is 130 - 11 = 119.
+	CheckIssuerBalance(network, issuer, "", "USD", 130, 11, 119)
 
 	// test multi action transfer...
 	t13 := time.Now()
