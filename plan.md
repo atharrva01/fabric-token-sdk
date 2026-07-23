@@ -27,8 +27,16 @@ isPending = stretch, only if time remains. Target 6 wks, ceiling ~8 with buffer.
   golden digests reproduced by Go/ethers/Solidity; forged-content spend rejected on-chain
 - [x] Week 3 — StateDelta translator + EIP-712 secp256k1 signer — gate met: real Go signatures verify on the
   Week-2 contract (fixture endorsement); content-binding round-trip proven with real fabtoken + zkatdlog
-  actions; deterministic delta bytes (PR pending)
-- [ ] Week 4 — Endorsement (responder/initiator/provider/registry)
+  actions; deterministic delta bytes — MERGED (#1936)
+- [~] Week 4 — Endorsement (responder/initiator/provider/registry) — one PR, 4 commit checkpoints:
+  - [ ] A: minimal ABI codec (selector, bytes32-call encode, bytes/uint64 decode) + address↔identity registry
+    + endorsement messages (EndorseRequest/EndorseResponse, no digest field)
+  - [ ] B: EVM-backed validator ledger (getToken@finalized via mock EVMClient) + responder view
+    (authorize → validate → translate → sign; each endorser recomputes the digest, never blind-signs)
+  - [ ] C: initiator view (collect over FSC sessions, recover+authorize each sig, threshold/uniqueness) +
+    Service.Endorse entrypoint + envelope carries the delta + endorsements
+  - [ ] D: gate — 2-of-N assembled over mock FSC sessions, quorum emitted to a fixture and verified on-chain
+    (forge), mirroring the Week-3 Go→Solidity loop; docs
 - [ ] Week 5 — Driver + 16 network methods + JSON-RPC client + DI + receipt-finality baseline
 - [ ] Week 6 — Besu NWO bootstrap + admin runbook + fabtoken END-TO-END on Besu
 - [ ] Week 7 — endorsed PP-update + zkatdlog END-TO-END + recipient anchor→finality (stretch: fabric-x-evm + isPending)
