@@ -6,7 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 package endorsement
 
-import "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+
+	"github.com/LFDT-Panurus/panurus/token/services/logging"
+)
+
+// logger is the package logger, used for the initiator's per-endorser diagnostics.
+var logger = logging.MustGetLogger()
 
 // Sentinel errors for the endorsement flow, classifiable with errors.Is (design §13). They are all
 // permanent: none is worth retrying, because each means the request itself is unacceptable, not that

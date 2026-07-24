@@ -94,8 +94,9 @@ func newResponder(t *testing.T, v RequestValidator, pp PublicParamsProvider, sig
 	t.Helper()
 	auth, err := NewAuthorizer([]view.Identity{view.Identity(testCaller)})
 	require.NoError(t, err)
+	factory := NewDeltaFactory(v, pp, &mock.EVMClient{}, addr(0xAA), "")
 
-	return NewResponder(testTMSID(), auth, v, pp, signer, testDomain(), &mock.EVMClient{}, addr(0xAA), "")
+	return NewResponder(testTMSID(), auth, factory, signer, testDomain())
 }
 
 func newSigner(t *testing.T, low byte) *eip712.Signer {

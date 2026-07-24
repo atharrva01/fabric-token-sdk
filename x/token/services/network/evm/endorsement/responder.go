@@ -14,12 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 
 	token2 "github.com/LFDT-Panurus/panurus/token"
-	"github.com/LFDT-Panurus/panurus/token/core/common"
 	session2 "github.com/LFDT-Panurus/panurus/token/services/utils/json/session"
-	"github.com/LFDT-Panurus/panurus/x/token/services/network/evm/client"
 	"github.com/LFDT-Panurus/panurus/x/token/services/network/evm/eip712"
-	"github.com/LFDT-Panurus/panurus/x/token/services/network/evm/keys"
-	"github.com/LFDT-Panurus/panurus/x/token/services/network/evm/statedelta"
 )
 
 // receiveTimeout bounds how long a responder waits for the request on its session before giving up.
@@ -38,44 +34,26 @@ const receiveTimeout = 30 * time.Second
 type Responder struct {
 	tmsID      token2.TMSID
 	authorizer *Authorizer
-	validator  RequestValidator
-	pp         PublicParamsProvider
+	factory    *DeltaFactory
 	signer     EndorserSigner
 	domain     eip712.Domain
-
-	// client and tokenState back the read-only validation ledger (getToken@blockTag).
-	client     client.EVMClient
-	tokenState client.Address
-	blockTag   string
 }
 
-// NewResponder assembles a Responder for one TMS from its collaborators. An empty blockTag defaults
-// to DefaultBlockTag.
+// NewResponder assembles a Responder for one TMS from its collaborators. The DeltaFactory carries the
+// validator, public-parameters provider and the ledger this endorser validates and translates with.
 func NewResponder(
 	tmsID token2.TMSID,
 	authorizer *Authorizer,
-	validator RequestValidator,
-	pp PublicParamsProvider,
+	factory *DeltaFactory,
 	signer EndorserSigner,
 	domain eip712.Domain,
-	evmClient client.EVMClient,
-	tokenState client.Address,
-	blockTag string,
 ) *Responder {
-	if blockTag == "" {
-		blockTag = DefaultBlockTag
-	}
-
 	return &Responder{
 		tmsID:      tmsID,
 		authorizer: authorizer,
-		validator:  validator,
-		pp:         pp,
+		factory:    factory,
 		signer:     signer,
 		domain:     domain,
-		client:     evmClient,
-		tokenState: tokenState,
-		blockTag:   blockTag,
 	}
 }
 
@@ -115,8 +93,9 @@ func (r *Responder) Handle(ctx context.Context, caller view.Identity, req *Endor
 	return &EndorseResponse{Signature: sig, EndorserAddress: r.signer.Address().Hex()}
 }
 
-// endorse is the decision proper: authorize, validate, translate, sign. It returns the signature or
-// the first failure.
+// endorse is the decision proper: authorize, then validate-and-translate through the shared factory,
+// then sign. It returns the signature or the first failure. The digest is derived here, from the
+// delta this endorser built, never taken from the request.
 func (r *Responder) endorse(ctx context.Context, caller view.Identity, req *EndorseRequest) ([]byte, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -128,69 +107,14 @@ func (r *Responder) endorse(ctx context.Context, caller view.Identity, req *Endo
 		return nil, err
 	}
 
-	// public parameters this endorser binds the delta to: the bytes whose hash the contract checks,
-	// and the on-chain version the contract requires at apply time.
-	ppRaw, ppVersion, err := r.pp.PublicParams(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load public parameters")
-	}
-
-	// validate the request against on-chain state, read through the getToken ledger at blockTag.
-	ledger := NewLedger(ctx, r.client, r.tokenState, r.blockTag)
-	actions, meta, err := r.validator.UnmarshallAndVerifyWithMetadata(
-		ctx,
-		ledger,
-		token2.RequestAnchor(req.Anchor),
-		req.TokenRequest,
-	)
-	if err != nil {
-		return nil, errors.Join(ErrValidation, err)
-	}
-
-	// translate the validated actions into the delta this endorser will sign.
-	delta, err := r.translate(ctx, req, actions, meta, ppRaw, ppVersion)
+	delta, err := r.factory.Build(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	// recompute the digest and sign it. The digest is derived here, from the delta this endorser
-	// built, never taken from the request.
 	digest := eip712.Digest(r.domain, delta)
 
 	return r.signer.Sign(digest)
-}
-
-// translate reconstructs the StateDelta from the validated actions, binding it to the public
-// parameters and the token-request hash. The token-request hash is committed from the validator's
-// TokenRequestToSign attribute (the anchor-bound message-to-sign), matching the hash the rest of the
-// SDK stores, exactly as the Fabric responder does (responder.go: CommitTokenRequest(meta[trs])).
-func (r *Responder) translate(
-	ctx context.Context,
-	req *EndorseRequest,
-	actions []any,
-	meta map[string][]byte,
-	ppRaw []byte,
-	ppVersion uint64,
-) (*statedelta.StateDelta, error) {
-	anchor, err := keys.AnchorFromTxID(req.Anchor)
-	if err != nil {
-		return nil, errors.Wrapf(err, "invalid anchor [%s]", req.Anchor)
-	}
-
-	tr := statedelta.NewTranslator(anchor, ppRaw, ppVersion)
-	for i, action := range actions {
-		if err := tr.Write(ctx, action); err != nil {
-			return nil, errors.Wrapf(err, "failed to translate action %d", i)
-		}
-	}
-	if err := tr.AddPublicParamsDependency(); err != nil {
-		return nil, errors.Wrap(err, "failed to add public parameters dependency")
-	}
-	if _, err := tr.CommitTokenRequest(meta[common.TokenRequestToSign], true); err != nil {
-		return nil, errors.Wrap(err, "failed to commit token request")
-	}
-
-	return tr.StateDelta()
 }
 
 // compile-time check that *token.Validator satisfies RequestValidator, so the production wiring
