@@ -8,10 +8,61 @@ package endorsement
 
 import (
 	"context"
+	"errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// errNoService is returned by fakeContext.GetService so callers that probe for optional services
+// (envelope metrics) fall back gracefully instead of hitting a panic.
+var errNoService = errors.New("no service in fake context")
+
+// pipeSession is one end of an in-memory, bidirectional session between two views. Send delivers to
+// the peer's inbox; Receive drains this end's inbox. It implements view.Session, so the real
+// Initiator.Call and Responder.Call paths run over it in the gate test.
+type pipeSession struct {
+	caller  view.Identity
+	inbox   chan *view.Message
+	peerBox chan *view.Message
+}
+
+// newPipe returns the two ends of a session. Each end reports its peer's identity as the caller, so
+// the responder end authorizes against the initiator's authenticated identity.
+func newPipe(initiatorID, endorserID view.Identity) (initiatorEnd, endorserEnd *pipeSession) {
+	a := make(chan *view.Message, 4)
+	b := make(chan *view.Message, 4)
+	initiatorEnd = &pipeSession{caller: endorserID, inbox: a, peerBox: b}
+	endorserEnd = &pipeSession{caller: initiatorID, inbox: b, peerBox: a}
+
+	return initiatorEnd, endorserEnd
+}
+
+func (s *pipeSession) Info() view.SessionInfo { return view.SessionInfo{ID: "pipe", Caller: s.caller} }
+
+func (s *pipeSession) Send(payload []byte) error {
+	return s.SendWithContext(context.Background(), payload)
+}
+
+func (s *pipeSession) SendWithContext(_ context.Context, payload []byte) error {
+	s.peerBox <- &view.Message{Status: view.OK, Payload: payload}
+
+	return nil
+}
+
+func (s *pipeSession) SendError(payload []byte) error {
+	return s.SendErrorWithContext(context.Background(), payload)
+}
+
+func (s *pipeSession) SendErrorWithContext(_ context.Context, payload []byte) error {
+	s.peerBox <- &view.Message{Status: view.ERROR, Payload: payload}
+
+	return nil
+}
+
+func (s *pipeSession) Receive() <-chan *view.Message { return s.inbox }
+
+func (s *pipeSession) Close() {}
 
 // fakeContext is a minimal view.Context for the endorsement tests: it carries a context.Context, and
 // (for the gate test) hands the initiator a session per party via GetSession and the responder its
@@ -39,8 +90,11 @@ func (c *fakeContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.Sp
 	return ctx, trace.SpanFromContext(ctx)
 }
 
+// GetService returns an error rather than a service: the typed session resolves optional envelope
+// metrics through it and treats an error as "no metrics", which is what the tests want (no metrics
+// registered). Panicking here would abort the session setup.
 func (c *fakeContext) GetService(any) (any, error) {
-	panic("GetService not supported in fake context")
+	return nil, errNoService
 }
 
 func (c *fakeContext) RunView(view.View, ...view.RunViewOption) (any, error) {
@@ -54,5 +108,8 @@ func (c *fakeContext) GetSessionByID(string, view.Identity) (view.Session, error
 }
 func (c *fakeContext) OnError(func()) {}
 
-// compile-time check that the fake satisfies the FSC contract.
-var _ view.Context = (*fakeContext)(nil)
+// compile-time checks that the fakes satisfy the FSC contracts.
+var (
+	_ view.Session = (*pipeSession)(nil)
+	_ view.Context = (*fakeContext)(nil)
+)
